@@ -808,6 +808,54 @@ export default function App() {
   const [startupSoundPlayed, setStartupSoundPlayed] = useState(false);
   const [lastProcessedMsgId, setLastProcessedMsgId] = useState(null);
 
+  // --- URL State Sync ---
+  useEffect(() => {
+    const syncFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      setActiveChatId(params.get('chat') || null);
+      setViewProfileId(params.get('profile') || null);
+    };
+
+    // Инициализация при загрузке
+    syncFromUrl();
+
+    // Слушаем кнопки "Назад/Вперед" в браузере
+    window.addEventListener('popstate', syncFromUrl);
+    return () => window.removeEventListener('popstate', syncFromUrl);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    
+    const params = new URLSearchParams(window.location.search);
+    let hasChanges = false;
+
+    if (activeChatId) {
+      if (params.get('chat') !== activeChatId) {
+        params.set('chat', activeChatId);
+        hasChanges = true;
+      }
+    } else if (params.has('chat')) {
+      params.delete('chat');
+      hasChanges = true;
+    }
+
+    if (viewProfileId) {
+      if (params.get('profile') !== viewProfileId) {
+        params.set('profile', viewProfileId);
+        hasChanges = true;
+      }
+    } else if (params.has('profile')) {
+      params.delete('profile');
+      hasChanges = true;
+    }
+
+    if (hasChanges) {
+      const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+      window.history.pushState({}, '', newUrl);
+    }
+  }, [activeChatId, viewProfileId, isLoggedIn]);
+
   // ЭФФЕКТ: Воспроизведение звука запуска Windows 7
   useEffect(() => {
     if (isLoggedIn && !startupSoundPlayed) {
