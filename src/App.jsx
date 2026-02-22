@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Settings, Send, Paperclip, Smile, X, Maximize, Minus, Users, Phone, Video, Mic, Square, Play, Pause, Edit2, Trash2, Reply, Plus, Image as ImageIcon, MoreVertical, Check, ArrowLeft, Globe, StickyNote, FileText, Music, Search, Palette, Volume2, ExternalLink, RefreshCw, Cpu, Clock, Award, Volume1, VolumeX, Trash } from 'lucide-react';
+import { User, Settings, Send, Paperclip, Smile, X, Maximize, Minus, Users, Phone, Video, Mic, Square, Play, Pause, Edit2, Trash2, Reply, Plus, Image as ImageIcon, MoreVertical, Check, ArrowLeft, Globe, StickyNote, FileText, Music, Search, Palette, Volume2, ExternalLink, RefreshCw, Cpu, Clock, Award, Volume1, VolumeX, Trash, Shield, Ban } from 'lucide-react';
 import Peer from 'peerjs';
 
 // --- Firebase Imports ---
@@ -21,6 +21,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'aerogram-custom';
+const ADMIN_EMAIL = 'gaymomentispravitmoment@gmail.com';
 
 // --- Constants ---
 const WALLPAPERS = [
@@ -777,6 +778,7 @@ export default function App() {
   const [showGadgets, setShowGadgets] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [gadgetNotes, setGadgetNotes] = useState(localStorage.getItem('aero_notes') || '');
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [cpuUsage, setCpuUsage] = useState(15);
   
   const [volumes, setVolumes] = useState({ notify: 0.5, call: 0.5, system: 0.3 });
@@ -791,6 +793,13 @@ export default function App() {
         const docSnap = await getDoc(userRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+          if (data.isBanned) {
+            await signOut(auth);
+            setUser(null);
+            setIsLoggedIn(false);
+            setAuthError('Ваш аккаунт заблокирован администратором.');
+            return;
+          }
           setLoginName(data.name || '');
           setMyAvatarUrl(data.avatar || '');
           setMyStatus(data.status || 'online');
@@ -934,10 +943,12 @@ export default function App() {
         const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', currentUser.uid);
         await setDoc(userRef, {
           name: loginName.trim(),
+          email: email,
           avatar: '',
           status: 'online',
           customStatus: '',
-          lastSeen: Date.now()
+          lastSeen: Date.now(),
+          isBanned: false
         }, { merge: true });
       } else {
         // Вход
@@ -949,6 +960,14 @@ export default function App() {
         const docSnap = await getDoc(userRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+          if (data.isBanned) {
+            await signOut(auth);
+            setAuthError('Ваш аккаунт заблокирован администратором.');
+            return;
+          }
+          if (!data.email) {
+             await setDoc(userRef, { email: currentUser.email }, { merge: true });
+          }
           setLoginName(data.name || '');
           setMyAvatarUrl(data.avatar || '');
           setMyStatus(data.status || 'online');
@@ -1416,6 +1435,11 @@ export default function App() {
     setInputText(prev => prev + emoji);
     setShowEmojiPicker(false);
   };
+  
+  const toggleBan = async (uid, currentStatus) => {
+    const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', uid);
+    await updateDoc(userRef, { isBanned: !currentStatus });
+  };
 
   const activeChat = chats.find(c => c.id === activeChatId);
   const myAvatar = myAvatarUrl || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.uid || 'Me'}`;
@@ -1597,6 +1621,15 @@ export default function App() {
                   </div>
                   <Settings size={18} className="text-slate-600 shrink-0" />
                 </div>
+
+                {/* Admin Button */}
+                {user?.email === ADMIN_EMAIL && (
+                   <div className="px-2 pt-2">
+                     <button onClick={() => setShowAdminPanel(true)} className="w-full aero-btn py-1 text-xs flex items-center justify-center gap-1 bg-red-100 border-red-300 text-red-800 font-bold">
+                       <Shield size={12} /> Админ Панель
+                     </button>
+                   </div>
+                )}
 
                 {/* Search */}
                 <div className="p-2">
@@ -2325,6 +2358,54 @@ export default function App() {
                       </div>
                     </div>
                     <button onClick={handleCreateGroup} className="aero-btn w-full py-1.5 font-bold">{t('create')}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ADMIN PANEL */}
+            {showAdminPanel && (
+              <div className="absolute inset-0 z-[300] flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                <div className="aero-window w-full max-w-2xl h-[500px] m-4 shadow-2xl animate-fade-in-up border border-white/80 flex flex-col">
+                  <div className="aero-titlebar">
+                    <span className="aero-title-text flex items-center gap-2"><Shield size={14} className="text-red-600"/> Панель Администратора</span>
+                    <div className="ml-auto"><div className="win-control win-close" onClick={() => setShowAdminPanel(false)}><X size={12} color="white" /></div></div>
+                  </div>
+                  <div className="flex-1 bg-white/90 p-4 overflow-y-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-300">
+                          <th className="p-2">Пользователь</th>
+                          <th className="p-2">Email</th>
+                          <th className="p-2">Статус</th>
+                          <th className="p-2">Действия</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(usersData).map(([uid, u]) => (
+                          <tr key={uid} className="border-b border-slate-100 hover:bg-blue-50">
+                            <td className="p-2 flex items-center gap-2">
+                              <img src={u.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`} className="w-6 h-6 rounded-full border border-slate-300"/>
+                              <span className="font-bold text-slate-700">{u.name}</span>
+                            </td>
+                            <td className="p-2 text-slate-600">{u.email || '-'}</td>
+                            <td className="p-2">
+                                {u.isBanned ? <span className="text-red-600 font-bold">Забанен</span> : <span className="text-green-600">Активен</span>}
+                            </td>
+                            <td className="p-2">
+                              {uid !== user.uid && (
+                                <button 
+                                  onClick={() => toggleBan(uid, u.isBanned)}
+                                  className={`px-2 py-1 rounded text-xs font-bold text-white shadow-sm ${u.isBanned ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}
+                                >
+                                  {u.isBanned ? 'Разбанить' : 'Забанить'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
