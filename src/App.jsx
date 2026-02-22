@@ -1976,7 +1976,9 @@ export default function App() {
                                 {msg.replyTo && (
                                   <div className="mb-2 p-2 bg-black/5 border-l-2 border-blue-400 rounded text-xs cursor-pointer opacity-80">
                                     <div className="font-bold text-blue-700">{msg.replyTo.senderName}</div>
-                                    <div className="truncate">{msg.replyTo.text}</div>
+                                    <div className="truncate" title={msg.replyTo.text}>
+                                      {msg.replyTo.text && msg.replyTo.text.length > 15 ? msg.replyTo.text.substring(0, 15) + '...' : msg.replyTo.text}
+                                    </div>
                                   </div>
                                 )}
 
@@ -2079,7 +2081,9 @@ export default function App() {
                             {editingMessageId ? <Edit2 size={14} className="text-yellow-600"/> : <Reply size={14} className="text-blue-600"/>}
                             <div className="border-l-2 border-slate-400 pl-2 flex flex-col">
                               <span className="font-bold text-slate-700">{editingMessageId ? t('editingMessage') : `${t('replyTo')}: ${replyingTo.senderName}`}</span>
-                              <span className="truncate text-slate-500 max-w-[200px]">{editingMessageId ? '' : replyingTo.text}</span>
+                              <span className="truncate text-slate-500 max-w-[200px]" title={replyingTo.text}>
+                                {editingMessageId ? '' : (replyingTo.text && replyingTo.text.length > 15 ? replyingTo.text.substring(0, 15) + '...' : replyingTo.text)}
+                              </span>
                             </div>
                           </div>
                           <button onClick={() => { setReplyingTo(null); setEditingMessageId(null); setInputText(''); }} className="p-1 hover:bg-slate-200 rounded"><X size={14}/></button>
