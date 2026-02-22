@@ -269,13 +269,28 @@ const aeroStyles = `
     --aero-highlight: rgba(255, 255, 255, 0.9);
   }
 
+  /* Slower, more beautiful animations */
+  @keyframes gentle-fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(15px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-gentle-fade-in-up {
+    animation: gentle-fade-in-up 0.5s cubic-bezier(0.390, 0.575, 0.565, 1.000) both;
+  }
+
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
     overflow: hidden;
     background: var(--aero-bg, radial-gradient(circle at 10% 20%, #e0f2fe 0%, #bae6fd 30%, #38bdf8 70%, #0284c7 100%));
     background-size: 200% 200%;
-    animation: aurora 20s ease infinite;
+    animation: aurora 25s ease infinite;
   }
 
   @keyframes aurora {
@@ -329,7 +344,7 @@ const aeroStyles = `
     box-shadow: inset 0 1px 1px rgba(255,255,255,0.8), 0 2px 4px rgba(0,0,0,0.2);
     color: white;
     text-shadow: 0px 1px 2px rgba(0,0,0,0.6);
-    transition: all 0.1s ease;
+    transition: all 0.25s ease;
     cursor: pointer;
   }
   .aero-btn:hover {
@@ -409,7 +424,7 @@ const aeroStyles = `
     border: 1px solid #999;
     border-top-color: #666;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-    transition: all 0.2s;
+    transition: all 0.25s ease;
   }
   .aero-input:focus {
     outline: none;
@@ -522,6 +537,13 @@ const aeroStyles = `
   .aero-peek-popup.visible {
     opacity: 1;
     transform: translateX(0);
+  }
+  
+  /* Mobile-specific optimizations */
+  @media (max-width: 767px) {
+    .aero-peek-popup {
+      display: none !important;
+    }
   }
 
   /* Sticky Note */
@@ -1506,7 +1528,7 @@ export default function App() {
       <div className="h-screen w-full flex items-center justify-center p-4 sm:p-8">
         {!isLoggedIn ? (
           // --- LOGIN SCREEN ---
-          <div className="aero-window w-full max-w-sm shadow-2xl animate-fade-in-up">
+          <div className="aero-window w-full max-w-sm shadow-2xl animate-gentle-fade-in-up">
             <div className="aero-titlebar">
               <span className="aero-title-text flex items-center gap-2">
                 <Smile size={16} className="text-blue-600" /> {t('loginTitle')}
@@ -1589,7 +1611,7 @@ export default function App() {
           </div>
         ) : (
           // --- MAIN APP WINDOW ---
-          <div className={`aero-window flex flex-col shadow-2xl relative transition-all duration-200 ${isFullScreen ? 'fixed inset-0 w-full h-full max-w-none rounded-none z-50' : 'w-full h-full md:h-[85vh] md:max-w-5xl'}`}>
+          <div className={`aero-window flex flex-col shadow-2xl relative transition-all duration-300 ${isFullScreen ? 'fixed inset-0 w-full h-full max-w-none rounded-none z-50' : 'w-full h-full md:h-[85vh] md:max-w-5xl'}`}>
             
             {/* Window Controls */}
             <div className="aero-titlebar">
@@ -1828,7 +1850,7 @@ export default function App() {
 
                     {/* Pinned Message (Sticky Note) */}
                     {pinnedMessage && (
-                      <div className="sticky-note mx-4 mt-2 p-2 rounded text-xs flex items-start gap-2 relative z-10 animate-fade-in-up cursor-pointer" onClick={() => {
+                      <div className="sticky-note mx-4 mt-2 p-2 rounded text-xs flex items-start gap-2 relative z-10 animate-gentle-fade-in-up cursor-pointer" onClick={() => {
                         document.getElementById(`msg-${pinnedMessage.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                       }}>
                         <StickyNote size={16} className="shrink-0 text-yellow-700" />
@@ -1843,7 +1865,7 @@ export default function App() {
                         // --- Рендер приглашения на звонок ---
                         if (msg.type === 'call') {
                           return (
-                            <div key={msg.id} className="flex justify-center my-4 w-full animate-fade-in-up">
+                            <div key={msg.id} className="flex justify-center my-4 w-full animate-gentle-fade-in-up">
                               <div className="bg-white/60 border border-blue-300 rounded-lg p-4 text-center shadow-md w-[85%] max-w-sm backdrop-blur-md">
                                 <div className="text-sm text-slate-800 font-semibold mb-3 flex items-center justify-center gap-2">
                                   <div 
@@ -1949,26 +1971,26 @@ export default function App() {
                                 </div>
 
                                 {/* Меню действий (3 точки) */}
-                                <div className={`absolute top-0 ${isMe ? '-left-8' : '-right-8'} opacity-0 group-hover:opacity-100 transition-opacity ${activeMenuMsgId === msg.id ? '!opacity-100' : ''} z-50`}>
+                                <div className={`absolute top-0 ${isMe ? '-left-7' : '-right-7'} opacity-0 group-hover:opacity-100 transition-opacity ${activeMenuMsgId === msg.id ? '!opacity-100' : ''} z-50`}>
                                   <button 
                                     onClick={(e) => { e.stopPropagation(); setActiveMenuMsgId(activeMenuMsgId === msg.id ? null : msg.id); }}
-                                    className="p-1.5 bg-white/80 rounded-full shadow hover:bg-blue-100 text-slate-600 border border-white/50"
+                                    className="p-2 bg-white/80 rounded-full shadow hover:bg-blue-100 text-slate-600 border border-white/50"
                                     title={t('actions')}
                                   >
-                                    <MoreVertical size={14} />
+                                    <MoreVertical size={16} />
                                   </button>
                                   
                                   {/* Выпадающее меню */}
                                   {activeMenuMsgId === msg.id && (
-                                    <div className={`absolute top-7 ${isMe ? 'right-0' : 'left-0'} w-36 bg-white/95 backdrop-blur-sm border border-slate-300 shadow-xl rounded-lg py-1 animate-fade-in-up flex flex-col overflow-hidden`} onClick={(e) => e.stopPropagation()}>
-                                      <button onClick={() => { setReplyingTo(msg); setActiveMenuMsgId(null); }} className="px-3 py-2 text-left text-xs hover:bg-blue-50 flex items-center gap-2 text-slate-700 transition-colors"><Reply size={14} className="text-blue-500" /> {t('reply')}</button>
+                                    <div className={`absolute top-9 ${isMe ? 'right-0' : 'left-0'} w-40 bg-white/95 backdrop-blur-sm border border-slate-300 shadow-xl rounded-lg py-1 animate-gentle-fade-in-up flex flex-col overflow-hidden`} onClick={(e) => e.stopPropagation()}>
+                                      <button onClick={() => { setReplyingTo(msg); setActiveMenuMsgId(null); }} className="px-3 py-2.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-slate-700 transition-colors"><Reply size={14} className="text-blue-500" /> {t('reply')}</button>
                                       {isMe && msg.type === 'text' && (
-                                        <button onClick={() => { setInputText(msg.text); setEditingMessageId(msg.id); setReplyingTo(null); setActiveMenuMsgId(null); }} className="px-3 py-2 text-left text-xs hover:bg-blue-50 flex items-center gap-2 text-slate-700 transition-colors"><Edit2 size={14} className="text-yellow-500" /> {t('edit')}</button>
+                                        <button onClick={() => { setInputText(msg.text); setEditingMessageId(msg.id); setReplyingTo(null); setActiveMenuMsgId(null); }} className="px-3 py-2.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-slate-700 transition-colors"><Edit2 size={14} className="text-yellow-500" /> {t('edit')}</button>
                                       )}
-                                      <button onClick={() => { handlePinMessage(msg.id); setActiveMenuMsgId(null); }} className="px-3 py-2 text-left text-xs hover:bg-blue-50 flex items-center gap-2 text-slate-700 transition-colors"><StickyNote size={14} className="text-green-600" /> {pinnedMessageId === msg.id ? t('unpinMessage') : t('pinMessage')}</button>
+                                      <button onClick={() => { handlePinMessage(msg.id); setActiveMenuMsgId(null); }} className="px-3 py-2.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-slate-700 transition-colors"><StickyNote size={14} className="text-green-600" /> {pinnedMessageId === msg.id ? t('unpinMessage') : t('pinMessage')}</button>
                                       {isMe && <div className="border-t border-slate-100 my-0.5"></div>}
                                       {isMe && (
-                                        <button onClick={() => requestDeleteMessage(msg.id)} className="px-3 py-2 text-left text-xs hover:bg-red-50 flex items-center gap-2 text-red-600 transition-colors"><Trash2 size={14} /> {t('delete')}</button>
+                                        <button onClick={() => requestDeleteMessage(msg.id)} className="px-3 py-2.5 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600 transition-colors"><Trash2 size={14} /> {t('delete')}</button>
                                       )}
                                     </div>
                                   )}
@@ -1990,7 +2012,7 @@ export default function App() {
                     {/* Input Area */}
                     <div className="p-3 border-t border-white/60 bg-gradient-to-t from-white/40 to-transparent relative">
                       {uploadError && (
-                        <div className="absolute -top-8 left-3 bg-red-100 border border-red-300 text-red-700 px-3 py-1 text-xs rounded shadow-sm font-semibold animate-fade-in-up z-20">
+                        <div className="absolute -top-8 left-3 bg-red-100 border border-red-300 text-red-700 px-3 py-1 text-xs rounded shadow-sm font-semibold animate-gentle-fade-in-up z-20">
                           {uploadError}
                         </div>
                       )}
@@ -2072,7 +2094,7 @@ export default function App() {
                               <Smile size={20} />
                             </button>
                             {showEmojiPicker && (
-                              <div className="absolute bottom-12 right-0 bg-white border border-slate-300 shadow-xl rounded p-2 grid grid-cols-5 gap-1 w-48 z-50 animate-fade-in-up">
+                              <div className="absolute bottom-12 right-0 bg-white border border-slate-300 shadow-xl rounded p-2 grid grid-cols-5 gap-1 w-48 z-50 animate-gentle-fade-in-up">
                                 {EMOJIS.map(emoji => (
                                   <button key={emoji} type="button" onClick={() => handleAddEmoji(emoji)} className="text-xl hover:bg-slate-100 rounded p-1">{emoji}</button>
                                 ))}
@@ -2114,7 +2136,7 @@ export default function App() {
             
             {/* GADGETS SIDEBAR */}
             {showGadgets && (
-              <div className="absolute top-8 right-0 bottom-0 w-48 gadget-sidebar p-4 flex flex-col gap-4 z-20 animate-fade-in-up overflow-y-auto">
+              <div className="absolute top-8 right-0 bottom-0 w-60 gadget-sidebar p-4 flex flex-col gap-4 z-20 animate-gentle-fade-in-up overflow-y-auto">
                 {/* Clock Gadget */}
                 <div className="gadget-item p-3 flex flex-col items-center justify-center aspect-square">
                   <Clock size={48} className="text-slate-800 drop-shadow-md mb-2" />
@@ -2153,7 +2175,7 @@ export default function App() {
             {/* PROFILE MODAL (Windows Media Player Settings Style) */}
             {viewProfileId && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                <div className="aero-window w-full max-w-[400px] m-4 shadow-2xl animate-fade-in-up border border-white/80">
+                <div className="aero-window w-full max-w-[400px] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80">
                   <div className="aero-titlebar cursor-move">
                     <span className="aero-title-text flex items-center gap-2">
                       {t('properties')}: {isMyProfile ? t('myProfile') : t('userProfile')}
@@ -2294,7 +2316,7 @@ export default function App() {
             {/* CALL MODAL */}
             {activeCallRoom && (
               <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-6">
-                <div className="aero-window w-full h-full md:max-w-6xl md:max-h-[800px] flex flex-col shadow-2xl animate-fade-in-up border border-white/80 overflow-hidden">
+                <div className="aero-window w-full h-full md:max-w-6xl md:max-h-[800px] flex flex-col shadow-2xl animate-gentle-fade-in-up border border-white/80 overflow-hidden">
                   <div className="aero-titlebar cursor-move">
                     <span className="aero-title-text flex items-center gap-2">
                       <Phone size={14} className="text-blue-700" />
@@ -2334,7 +2356,7 @@ export default function App() {
             {/* CREATE GROUP MODAL */}
             {showGroupModal && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                <div className="aero-window w-full max-w-[350px] m-4 shadow-2xl animate-fade-in-up border border-white/80">
+                <div className="aero-window w-full max-w-[350px] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80">
                   <div className="aero-titlebar">
                     <span className="aero-title-text flex items-center gap-2">{t('createGroup')}</span>
                     <div className="ml-auto flex gap-1">
@@ -2373,7 +2395,7 @@ export default function App() {
             {/* ADMIN PANEL */}
             {showAdminPanel && (
               <div className="absolute inset-0 z-[300] flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                <div className="aero-window w-full max-w-2xl h-[500px] m-4 shadow-2xl animate-fade-in-up border border-white/80 flex flex-col">
+                <div className="aero-window w-full max-w-2xl h-[500px] max-h-[80vh] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80 flex flex-col">
                   <div className="aero-titlebar">
                     <span className="aero-title-text flex items-center gap-2"><Shield size={14} className="text-red-600"/> Панель Администратора</span>
                     <div className="ml-auto"><div className="win-control win-close" onClick={() => setShowAdminPanel(false)}><X size={12} color="white" /></div></div>
@@ -2426,7 +2448,7 @@ export default function App() {
             {/* RECYCLE BIN MODAL */}
             {showRecycleBin && (
               <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                <div className="aero-window w-full max-w-[500px] m-4 shadow-2xl animate-fade-in-up border border-white/80 h-[400px] flex flex-col">
+                <div className="aero-window w-full max-w-[500px] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80 h-[400px] flex flex-col">
                   <div className="aero-titlebar">
                     <span className="aero-title-text flex items-center gap-2"><Trash size={14}/> {t('recycleBin')}</span>
                     <div className="ml-auto"><div className="win-control win-close" onClick={() => setShowRecycleBin(false)}><X size={12} color="white" /></div></div>
@@ -2462,7 +2484,7 @@ export default function App() {
             {/* VIEW MESSAGE MODAL */}
             {viewingMessage && (
               <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setViewingMessage(null)}>
-                <div className="aero-window w-full max-w-4xl max-h-[90vh] m-4 flex flex-col shadow-2xl animate-fade-in-up" onClick={e => e.stopPropagation()}>
+                <div className="aero-window w-full max-w-4xl max-h-[90vh] m-4 flex flex-col shadow-2xl animate-gentle-fade-in-up" onClick={e => e.stopPropagation()}>
                   <div className="aero-titlebar">
                     <span className="aero-title-text flex items-center gap-2">{t('viewMessage')}</span>
                     <div className="ml-auto"><div className="win-control win-close" onClick={() => setViewingMessage(null)}><X size={12} color="white" /></div></div>
