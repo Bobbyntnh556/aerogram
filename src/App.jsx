@@ -780,6 +780,7 @@ export default function App() {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showParticipantsModal, setShowParticipantsModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedUsersForGroup, setSelectedUsersForGroup] = useState([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -1940,6 +1941,7 @@ export default function App() {
                             </div>
                           )}
                         </div>
+                        <button onClick={() => setShowParticipantsModal(true)} className="p-1.5 hover:bg-white/50 rounded border border-transparent hover:border-white/80 transition-all text-slate-600 shadow-sm" title={t('participants')}><Users size={18} /></button>
                         <button onClick={() => handleStartCall(false)} className="p-1.5 hover:bg-white/50 rounded border border-transparent hover:border-white/80 transition-all text-slate-600 shadow-sm" title={t('startVoiceCall')}><Phone size={18} /></button>
                         <button onClick={() => handleStartCall(true)} className="p-1.5 hover:bg-white/50 rounded border border-transparent hover:border-white/80 transition-all text-slate-600 shadow-sm" title={t('startVideoCall')}><Video size={18} /></button>
                       </div>
@@ -2494,6 +2496,37 @@ export default function App() {
                       </div>
                     </div>
                     <button onClick={handleCreateGroup} className="aero-btn w-full py-1.5 font-bold">{t('create')}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PARTICIPANTS MODAL */}
+            {showParticipantsModal && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                <div className="aero-window w-full max-w-[350px] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80">
+                  <div className="aero-titlebar">
+                    <span className="aero-title-text flex items-center gap-2"><Users size={14} className="text-blue-600"/> {t('participants')}</span>
+                    <div className="ml-auto flex gap-1">
+                      <div className="win-control win-close" onClick={() => setShowParticipantsModal(false)}><X size={12} color="white" /></div>
+                    </div>
+                  </div>
+                  <div className="p-2 bg-white/90 h-[300px] overflow-y-auto">
+                    {activeChat?.participants?.map(uid => {
+                      const u = usersData[uid] || {};
+                      return (
+                        <div key={uid} onClick={() => { setViewProfileId(uid); setShowParticipantsModal(false); }} className="flex items-center gap-3 p-2 hover:bg-blue-50 cursor-pointer rounded border-b border-slate-100 last:border-0">
+                          <div className="relative">
+                            <img src={u.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`} className="w-10 h-10 rounded bg-white border border-slate-300 p-0.5 object-cover" />
+                            <div className={`absolute -bottom-1 -right-1 w-3 h-3 status-dot z-10 status-${u.status || 'offline'}`}></div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-slate-800 text-sm truncate">{u.name || t('unknown')}</div>
+                            <div className="text-xs text-slate-500 truncate">{u.customStatus || getStatusText(u.status || 'offline')}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
