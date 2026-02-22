@@ -763,7 +763,6 @@ export default function App() {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   
-  
   // --- Состояния для голосовых сообщений ---
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -792,7 +791,7 @@ export default function App() {
   
   // --- New Features State ---
   const [currentTheme, setCurrentTheme] = useState('blue');
-  const [currentSoundScheme, setCurrentSoundScheme] = useState('xp');
+  const [currentSoundScheme, setCurrentSoundScheme] = useState('win7');
   const [hoveredChatId, setHoveredChatId] = useState(null); // Aero Peek
   const [activeTab, setActiveTab] = useState('general'); // Profile tabs
   const [isDragOver, setIsDragOver] = useState(false); // Drag & Drop
@@ -804,6 +803,62 @@ export default function App() {
   const [cpuUsage, setCpuUsage] = useState(15);
   
   const [volumes, setVolumes] = useState({ notify: 0.5, call: 0.5, system: 0.3 });
+
+  // --- ЗВУКОВЫЕ СТЕЙТЫ ---
+  const [startupSoundPlayed, setStartupSoundPlayed] = useState(false);
+  const [lastProcessedMsgId, setLastProcessedMsgId] = useState(null);
+
+  // ЭФФЕКТ: Воспроизведение звука запуска Windows 7
+  useEffect(() => {
+    if (isLoggedIn && !startupSoundPlayed) {
+      const playStartup = () => {
+        // Ссылка на оригинальный звук "Приветствия" Windows 7
+        const audio = new Audio('https://www.myinstants.com/media/sounds/windows-7-startup.mp3');
+        audio.volume = volumes.system || 0.5;
+        
+        audio.play()
+          .then(() => setStartupSoundPlayed(true))
+          .catch(e => {
+            // Если браузер заблокировал автовоспроизведение, дожидаемся клика пользователя по странице
+            console.log("Автовоспроизведение заблокировано браузером. Ожидание клика для звука запуска...");
+            const onInteract = () => {
+              audio.play();
+              setStartupSoundPlayed(true);
+              window.removeEventListener('click', onInteract);
+            };
+            window.addEventListener('click', onInteract);
+          });
+      };
+      playStartup();
+    }
+  }, [isLoggedIn, startupSoundPlayed, volumes.system]);
+
+  // ЭФФЕКТ: Воспроизведение звука при получении нового НЕПРОЧИТАННОГО сообщения
+  useEffect(() => {
+    if (!isLoggedIn || !user) return;
+    
+    // Собираем все сообщения в один плоский массив
+    const allMessages = Object.values(messages).flat();
+    if (allMessages.length === 0) return;
+
+    // Ищем самое свежее сообщение по времени
+    const newestMsg = allMessages.reduce((prev, current) => (prev.timestamp > current.timestamp) ? prev : current);
+
+    // Если это действительно НОВОЕ сообщение (которое мы еще не обрабатывали)
+    if (newestMsg && newestMsg.id !== lastProcessedMsgId) {
+      setLastProcessedMsgId(newestMsg.id);
+
+      // Проверяем:
+      // 1. Сообщение не от нас (мы не отправитель)
+      // 2. Оно пришло только что (меньше 5 секунд назад), а не загружено из старой истории
+      const isNew = (Date.now() - newestMsg.timestamp) < 5000;
+      
+      if (isNew && newestMsg.senderId !== user.uid) {
+        // Воспроизводим системный звук уведомления
+        playSystemSound('notify', currentSoundScheme, volumes.notify);
+      }
+    }
+  }, [messages, lastProcessedMsgId, user, currentSoundScheme, volumes.notify, isLoggedIn]);
 
   // 1. Авторизация Firebase (по Email/Паролю)
   useEffect(() => {
@@ -997,7 +1052,6 @@ export default function App() {
         }
       }
 
-      playSystemSound('login', currentSoundScheme, volumes.system);
       setIsLoggedIn(true);
     } catch (err) {
       console.error("Auth Error:", err);
@@ -1015,6 +1069,7 @@ export default function App() {
     setLoginName('');
     setEmail('');
     setPassword('');
+    setStartupSoundPlayed(false); // Сбрасываем флаг звука запуска
   };
 
   const handleSendMessage = async (e) => {
