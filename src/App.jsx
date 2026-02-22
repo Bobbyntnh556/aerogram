@@ -804,6 +804,7 @@ export default function App() {
   const [cpuUsage, setCpuUsage] = useState(15);
   
   const [volumes, setVolumes] = useState({ notify: 0.5, call: 0.5, system: 0.3 });
+  const [timeTick, setTimeTick] = useState(0);
 
   // --- ЗВУКОВЫЕ СТЕЙТЫ ---
   const [startupSoundPlayed, setStartupSoundPlayed] = useState(false);
@@ -908,6 +909,40 @@ export default function App() {
       }
     }
   }, [messages, lastProcessedMsgId, user, currentSoundScheme, volumes.notify, isLoggedIn]);
+
+  // --- Heartbeat & Status Logic (Система статусов) ---
+  const getEffectiveStatus = (uid, uData) => {
+    if (uid === user?.uid) return myStatus; // Мой статус всегда актуален для меня
+    if (!uData || !uData.lastSeen) return 'offline';
+    // Если пользователя не было более 2 минут (120000 мс), считаем его оффлайн
+    if (Date.now() - uData.lastSeen > 120000) return 'offline';
+    return uData.status || 'offline';
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
+    
+    const sendHeartbeat = async () => {
+      try {
+        await updateDoc(userRef, {
+          lastSeen: Date.now(),
+          status: myStatus
+        });
+      } catch (e) {
+        console.error("Heartbeat failed", e);
+      }
+    };
+
+    sendHeartbeat(); // Отправляем сразу
+    const interval = setInterval(sendHeartbeat, 30000); // Обновляем каждые 30 сек
+    const tickInterval = setInterval(() => setTimeTick(t => t + 1), 60000); // Обновляем интерфейс каждую минуту
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(tickInterval);
+    };
+  }, [user, myStatus]);
 
   // 1. Авторизация Firebase (по Email/Паролю)
   useEffect(() => {
@@ -1596,7 +1631,7 @@ export default function App() {
       const otherUser = usersData[otherUserId] || {};
       activeChatDetails = { 
         name: otherUser.name || t('unknown'), 
-        status: getStatusText(otherUser.status || 'offline') 
+        status: getStatusText(getEffectiveStatus(otherUserId, otherUser)) 
       };
     }
   }
@@ -1608,7 +1643,7 @@ export default function App() {
     : {
         name: usersData[viewProfileId]?.name || t('unknown'), 
         avatar: usersData[viewProfileId]?.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${viewProfileId}`, 
-        status: usersData[viewProfileId]?.status || 'offline',
+        status: getEffectiveStatus(viewProfileId, usersData[viewProfileId]),
         customStatus: usersData[viewProfileId]?.customStatus || '',
         id: viewProfileId 
       };
@@ -1796,7 +1831,7 @@ export default function App() {
                         >
                           <div className="relative">
                             <img src={u.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`} alt={u.name} className="w-12 h-12 rounded bg-white shadow-sm border border-slate-300 p-0.5 object-cover" />
-                            <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 status-dot z-10 status-${u.status || 'offline'}`}></div>
+                        <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 status-dot z-10 status-${getEffectiveStatus(uid, u)}`}></div>
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-slate-800 text-sm truncate">{u.name}</div>
@@ -1835,7 +1870,7 @@ export default function App() {
                         const otherUser = usersData[otherUserId] || {};
                         chatName = otherUser.name || t('unknown');
                         chatAvatar = otherUser.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${otherUserId}`;
-                        chatStatus = otherUser.status || 'offline';
+                      chatStatus = getEffectiveStatus(otherUserId, otherUser);
                       }
 
                       // Вычисляем количество непрочитанных
@@ -2014,7 +2049,7 @@ export default function App() {
                                 onClick={() => setViewProfileId(msg.senderId)}
                                 title={`${t('profile')}: ${msg.senderName}`}
                               />
-                              <div className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 status-dot z-10 status-${senderData.status || 'online'}`}></div>
+                          <div className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 status-dot z-10 status-${getEffectiveStatus(msg.senderId, senderData)}`}></div>
                             </div>
                             <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[70%]`}>
                               {!isMe && <span className="text-xs text-slate-500 mb-1 ml-1 font-semibold">{msg.senderName}</span>}
@@ -2518,7 +2553,7 @@ export default function App() {
                         <div key={uid} onClick={() => { setViewProfileId(uid); setShowParticipantsModal(false); }} className="flex items-center gap-3 p-2 hover:bg-blue-50 cursor-pointer rounded border-b border-slate-100 last:border-0">
                           <div className="relative">
                             <img src={u.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`} className="w-10 h-10 rounded bg-white border border-slate-300 p-0.5 object-cover" />
-                            <div className={`absolute -bottom-1 -right-1 w-3 h-3 status-dot z-10 status-${u.status || 'offline'}`}></div>
+                            <div className={`absolute -bottom-1 -right-1 w-3 h-3 status-dot z-10 status-${getEffectiveStatus(uid, u)}`}></div>
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-slate-800 text-sm truncate">{u.name || t('unknown')}</div>
