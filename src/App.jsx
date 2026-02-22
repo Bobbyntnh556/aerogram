@@ -797,7 +797,7 @@ export default function App() {
             await signOut(auth);
             setUser(null);
             setIsLoggedIn(false);
-            setAuthError('Ваш аккаунт заблокирован администратором.');
+            setAuthError(`Ваш аккаунт заблокирован администратором. Причина: ${data.banReason || 'не указана'}`);
             return;
           }
           setLoginName(data.name || '');
@@ -962,7 +962,7 @@ export default function App() {
           const data = docSnap.data();
           if (data.isBanned) {
             await signOut(auth);
-            setAuthError('Ваш аккаунт заблокирован администратором.');
+            setAuthError(`Ваш аккаунт заблокирован администратором. Причина: ${data.banReason || 'не указана'}`);
             return;
           }
           if (!data.email) {
@@ -1438,7 +1438,14 @@ export default function App() {
   
   const toggleBan = async (uid, currentStatus) => {
     const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', uid);
-    await updateDoc(userRef, { isBanned: !currentStatus });
+    if (currentStatus) {
+      await updateDoc(userRef, { isBanned: false, banReason: null });
+    } else {
+      const reason = prompt('Укажите причину блокировки:', 'Нарушение правил');
+      if (reason !== null) {
+        await updateDoc(userRef, { isBanned: true, banReason: reason });
+      }
+    }
   };
 
   const activeChat = chats.find(c => c.id === activeChatId);
@@ -2390,7 +2397,12 @@ export default function App() {
                             </td>
                             <td className="p-2 text-slate-600">{u.email || '-'}</td>
                             <td className="p-2">
-                                {u.isBanned ? <span className="text-red-600 font-bold">Забанен</span> : <span className="text-green-600">Активен</span>}
+                                {u.isBanned ? (
+                                  <div className="flex flex-col">
+                                    <span className="text-red-600 font-bold">Забанен</span>
+                                    <span className="text-[10px] text-slate-500 max-w-[150px] truncate" title={u.banReason}>{u.banReason}</span>
+                                  </div>
+                                ) : <span className="text-green-600">Активен</span>}
                             </td>
                             <td className="p-2">
                               {uid !== user.uid && (
