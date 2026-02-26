@@ -8,20 +8,30 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, si
 import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
 // --- Firebase Initialization ---
-// Конфигурация вашего Firebase проекта
-const firebaseConfig = {
-  apiKey: "AIzaSyCGhS6xM3WQYocSyOtY2hSwOyRMc_pqPC4",
-  authDomain: "aerogram-362b4.firebaseapp.com",
-  projectId: "aerogram-362b4",
-  storageBucket: "aerogram-362b4.firebasestorage.app",
-  messagingSenderId: "494278053383",
-  appId: "1:494278053383:web:5cb0bdaba459f20108e4a2"
+// Функция для безопасного получения переменных окружения (предотвращает ошибку "process is not defined")
+const getEnvVar = (key, fallback) => {
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    return process.env[key];
+  }
+  return fallback;
 };
+
+// Ключи безопасно загружаются из файла .env (если он доступен в среде выполнения).
+// ПРИМЕЧАНИЕ: Перед публикацией кода в публичный репозиторий (GitHub), замените резервные значения на пустые строки "".
+const firebaseConfig = {
+  apiKey: getEnvVar('REACT_APP_FIREBASE_API_KEY', "AIzaSyCGhS6xM3WQYocSyOtY2hSwOyRMc_pqPC4"),
+  authDomain: getEnvVar('REACT_APP_FIREBASE_AUTH_DOMAIN', "aerogram-362b4.firebaseapp.com"),
+  projectId: getEnvVar('REACT_APP_FIREBASE_PROJECT_ID', "aerogram-362b4"),
+  storageBucket: getEnvVar('REACT_APP_FIREBASE_STORAGE_BUCKET', "aerogram-362b4.firebasestorage.app"),
+  messagingSenderId: getEnvVar('REACT_APP_FIREBASE_MESSAGING_SENDER_ID', "494278053383"),
+  appId: getEnvVar('REACT_APP_FIREBASE_APP_ID', "1:494278053383:web:5cb0bdaba459f20108e4a2")
+};
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'aerogram-custom';
-const ADMIN_EMAIL = 'gaymomentispravitmoment@gmail.com';
+const ADMIN_EMAIL = getEnvVar('REACT_APP_ADMIN_EMAIL', 'gaymomentispravitmoment@gmail.com');
 
 // --- Constants ---
 const WALLPAPERS = [
@@ -755,6 +765,7 @@ export default function App() {
   // Стейт для звонков, файлов и аудиосообщений
   const [activeCallChatId, setActiveCallChatId] = useState(null);
   const [activeCallRoom, setActiveCallRoom] = useState(null);
+  const [isCallVideo, setIsCallVideo] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   
@@ -1355,10 +1366,12 @@ export default function App() {
     const newCallId = `${activeChatId}_${Date.now()}`;
     
     // Создаем документ звонка, чтобы определить хоста
+    setIsCallVideo(isVideo);
     const callDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', newCallId);
     await setDoc(callDocRef, {
       hostId: user.uid,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      isVideo: isVideo
     });
 
     setActiveCallRoom(newCallId);
@@ -1387,13 +1400,18 @@ export default function App() {
     let peer = null;
     let localStream = null;
     let unsubscribe = null;
+    let cancelled = false;
 
     const startPeerCall = async () => {
       setCallStatus('connecting');
 
       // 1. Получаем доступ к камере/микрофону
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localStream = await navigator.mediaDevices.getUserMedia({ video: isCallVideo, audio: true });
+        if (cancelled) {
+          localStream.getTracks().forEach(track => track.stop());
+          return;
+        }
         if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
       } catch (err) {
         console.error("Ошибка доступа к медиа:", err);
@@ -1411,6 +1429,7 @@ export default function App() {
       });
 
       peer.on('open', async (myPeerId) => {
+        if (cancelled) return;
         const callDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', activeCallRoom);
         const callDoc = await getDoc(callDocRef);
 
@@ -1422,6 +1441,7 @@ export default function App() {
           // Я - присоединившийся (Гость)
           // Слушаем, когда появится ID хоста
           unsubscribe = onSnapshot(callDocRef, (snap) => {
+            if (cancelled) return;
             const data = snap.data();
             if (data && data.hostPeerId) {
               // Звоним хосту
@@ -1443,6 +1463,7 @@ export default function App() {
 
       // 3. Обработка входящего звонка (для Хоста)
       peer.on('call', (call) => {
+        if (cancelled) return;
         call.answer(localStream); // Отвечаем своим потоком
         setCallStatus('connected');
         call.on('stream', (remoteStream) => {
@@ -1454,6 +1475,7 @@ export default function App() {
     startPeerCall();
 
     return () => {
+      cancelled = true;
       if (peer) peer.destroy();
       if (localStream) localStream.getTracks().forEach(track => track.stop());
       if (unsubscribe) unsubscribe();
@@ -2020,6 +2042,7 @@ export default function App() {
                                 <button onClick={() => {
                                   setActiveCallRoom(msg.callId || msg.chatId);
                                   setActiveCallChatId(msg.chatId);
+                                  setIsCallVideo(msg.isVideo);
                                 }} className="aero-btn px-4 py-2 text-sm flex items-center justify-center gap-2 w-full mt-2 font-bold">
                                   {msg.isVideo ? <Video size={16}/> : <Phone size={16}/>}
                                   {t('joinCall')}
