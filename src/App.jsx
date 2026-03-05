@@ -274,6 +274,11 @@ const TRANSLATIONS = {
 const aeroStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600&display=swap');
 
+  /* ВАЖНО: Глобальный сброс box-sizing для исправления вылезающих инпутов */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
   :root {
     --aero-glass: rgba(220, 235, 250, 0.45);
     --aero-border: rgba(255, 255, 255, 0.6);
@@ -745,7 +750,7 @@ const AeroAudioPlayer = ({ src }) => {
 };
 
 // --- Helper Components for Modals & MS Paint ---
-const DraggableWindow = ({ title, icon: Icon, onClose, children, initialPos = { x: 50, y: 50 }, width = 400, height = 'auto', zIndex = 50 }) => {
+const DraggableWindow = ({ title, icon: Icon, onClose, children, initialPos = { x: 50, y: 50 }, width = 450, height = 'auto', zIndex = 50 }) => {
   const [pos, setPos] = useState(initialPos);
   const [isDragging, setIsDragging] = useState(false);
   const [rel, setRel] = useState({ x: 0, y: 0 });
@@ -776,7 +781,7 @@ const DraggableWindow = ({ title, icon: Icon, onClose, children, initialPos = { 
   return (
     <div 
       className="absolute aero-window shadow-2xl flex flex-col animate-gentle-fade-in-up border border-white/80"
-      style={{ left: pos.x, top: pos.y, width, height, zIndex }}
+      style={{ left: pos.x, top: pos.y, width, maxWidth: 'calc(100vw - 20px)', height, zIndex }}
     >
       <div className="aero-titlebar cursor-move" onMouseDown={onMouseDown}>
         <span className="aero-title-text flex items-center gap-2">
@@ -2589,7 +2594,7 @@ export default function App() {
 
             {/* ADMIN PANEL */}
             {showAdminPanel && (
-              <DraggableWindow title="Панель Администратора" icon={Shield} onClose={() => setShowAdminPanel(false)} initialPos={{x: window.innerWidth/2 - 300, y: 100}} width={600} zIndex={150}>
+              <DraggableWindow title="Панель Администратора" icon={Shield} onClose={() => setShowAdminPanel(false)} initialPos={{x: Math.max(10, window.innerWidth/2 - 300), y: Math.max(10, 100)}} width={600} zIndex={150}>
                   <div className="flex-1 bg-white/90 p-4 overflow-y-auto">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead>
@@ -2636,14 +2641,14 @@ export default function App() {
 
             {/* MS Paint Mini-App */}
             {showPaint && (
-              <DraggableWindow title="Aero Paint" icon={Brush} onClose={() => setShowPaint(false)} initialPos={{x: window.innerWidth/2 - 200, y: 100}} zIndex={160}>
+              <DraggableWindow title="Aero Paint" icon={Brush} onClose={() => setShowPaint(false)} initialPos={{x: Math.max(10, window.innerWidth/2 - 200), y: Math.max(10, 100)}} zIndex={160}>
                 <PaintApp onSend={(dataUrl) => { handleSendMessage(null, 'image', dataUrl); }} onClose={() => setShowPaint(false)} />
               </DraggableWindow>
             )}
 
             {/* Recycle Bin Window */}
             {showRecycleBin && (
-              <DraggableWindow title={t('recycleBin')} icon={Trash} onClose={() => setShowRecycleBin(false)} initialPos={{x: 100, y: 100}} width={450} height={400} zIndex={170}>
+              <DraggableWindow title={t('recycleBin')} icon={Trash} onClose={() => setShowRecycleBin(false)} initialPos={{x: Math.max(10, 100), y: Math.max(10, 100)}} width={450} height={400} zIndex={170}>
                 <div className="flex-1 overflow-y-auto p-2 bg-slate-50">
                   {(messages[activeChatId] || []).filter(m => m.deletedAt).length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-500">
@@ -2673,7 +2678,7 @@ export default function App() {
 
             {/* Profile Window */}
             {viewProfileId && (
-              <DraggableWindow title={isMyProfile ? t('myProfile') : t('userProfile')} icon={Settings} onClose={() => setViewProfileId(null)} initialPos={{x: window.innerWidth/2 - 200, y: window.innerHeight/2 - 150}} width={400} zIndex={180}>
+              <DraggableWindow title={isMyProfile ? t('myProfile') : t('userProfile')} icon={Settings} onClose={() => setViewProfileId(null)} initialPos={{x: Math.max(10, window.innerWidth/2 - 225), y: Math.max(10, window.innerHeight/2 - 200)}} width={450} zIndex={180}>
                   <div className="bg-white/90 p-4">
                     <div className="flex gap-1 border-b border-slate-300 mb-4 px-1">
                       <div onClick={() => setActiveTab('general')} className={`px-3 py-1 border border-slate-300 rounded-t text-sm font-semibold -mb-px z-10 cursor-pointer ${activeTab === 'general' ? 'bg-white border-b-transparent' : 'bg-slate-100 text-slate-500'}`}>{t('general')}</div>
@@ -2731,11 +2736,11 @@ export default function App() {
                                     <option value="invisible">{t('invisible')}</option>
                                   </select>
                                 </div>
-                                <div className="flex-1">
-                                  <label className="text-xs text-slate-600 block mb-1">{t('theme')}</label>
+                                <div className="flex-1 min-w-0">
+                                  <label className="text-xs text-slate-600 block mb-1 truncate">{t('theme')}</label>
                                   <div className="flex items-center gap-1">
-                                    <Palette size={14} className="text-slate-500"/>
-                                    <select value={currentTheme} onChange={(e) => setCurrentTheme(e.target.value)} className="aero-input w-full text-sm px-2 py-1 rounded-sm">
+                                    <Palette size={14} className="text-slate-500 shrink-0"/>
+                                    <select value={currentTheme} onChange={(e) => setCurrentTheme(e.target.value)} className="aero-input w-full text-sm px-1 py-1 rounded-sm truncate">
                                       {Object.entries(THEMES).map(([key, val]) => <option key={key} value={key}>{val.name}</option>)}
                                     </select>
                                   </div>
