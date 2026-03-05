@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Settings, Send, Paperclip, Smile, X, Maximize, Minus, Users, Phone, Video, Mic, Square, Play, Pause, Edit2, Trash2, Reply, Plus, Image as ImageIcon, MoreVertical, Check, ArrowLeft, Globe, StickyNote, FileText, Music, Search, Palette, Volume2, ExternalLink, RefreshCw, Cpu, Clock, Award, Volume1, VolumeX, Trash, Shield, Ban } from 'lucide-react';
+import { User, Settings, Send, Paperclip, Smile, X, Maximize, Minus, Users, Phone, Video, Mic, Square, Play, Pause, Edit2, Trash2, Reply, Plus, Image as ImageIcon, MoreVertical, Check, ArrowLeft, Globe, StickyNote, FileText, Music, Search, Palette, Volume2, ExternalLink, RefreshCw, Cpu, Clock, Award, Volume1, VolumeX, Trash, Shield, Ban, Brush, Heart, ThumbsUp, Laugh } from 'lucide-react';
 import Peer from 'peerjs';
 
 // --- Firebase Imports ---
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, getDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 // --- Firebase Initialization ---
 // Функция для безопасного получения переменных окружения (предотвращает ошибку "process is not defined")
@@ -43,6 +43,7 @@ const WALLPAPERS = [
 ];
 
 const EMOJIS = ['😀', '😂', '😍', '😎', '😭', '😡', '👍', '👎', '🎉', '❤️', '🔥', '💩', '🤔', '👋', '🙏', '💪', '👻', '💀', '👀', '✨'];
+const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '😡'];
 
 const THEMES = {
   blue: { name: 'Aero Blue', color: 'rgba(220, 235, 250, 0.45)', border: 'rgba(255, 255, 255, 0.6)', highlight: 'rgba(255, 255, 255, 0.9)', bg: 'radial-gradient(circle at 10% 20%, #e0f2fe 0%, #bae6fd 30%, #38bdf8 70%, #0284c7 100%)' },
@@ -583,6 +584,13 @@ const aeroStyles = `
     transform: scale(1.02);
     background: rgba(255, 255, 255, 0.3);
   }
+  
+  .reaction-pill {
+    background: rgba(255,255,255,0.9); border: 1px solid #cbd5e1; border-radius: 12px;
+    padding: 2px 6px; font-size: 11px; display: inline-flex; items-center; gap: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.1s;
+  }
+  .reaction-pill:hover { transform: scale(1.1); }
 `;
 
 // --- Initial Seed Data ---
@@ -736,6 +744,137 @@ const AeroAudioPlayer = ({ src }) => {
   );
 };
 
+// --- Helper Components for Modals & MS Paint ---
+const DraggableWindow = ({ title, icon: Icon, onClose, children, initialPos = { x: 50, y: 50 }, width = 400, height = 'auto', zIndex = 50 }) => {
+  const [pos, setPos] = useState(initialPos);
+  const [isDragging, setIsDragging] = useState(false);
+  const [rel, setRel] = useState({ x: 0, y: 0 });
+
+  const onMouseDown = (e) => {
+    if (e.target.closest('.win-control')) return;
+    setIsDragging(true);
+    setRel({ x: e.clientX - pos.x, y: e.clientY - pos.y });
+  };
+
+  useEffect(() => {
+    const onMouseMove = (e) => {
+      if (!isDragging) return;
+      setPos({ x: e.clientX - rel.x, y: e.clientY - rel.y });
+    };
+    const onMouseUp = () => setIsDragging(false);
+
+    if (isDragging) {
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isDragging, rel]);
+
+  return (
+    <div 
+      className="absolute aero-window shadow-2xl flex flex-col animate-gentle-fade-in-up border border-white/80"
+      style={{ left: pos.x, top: pos.y, width, height, zIndex }}
+    >
+      <div className="aero-titlebar cursor-move" onMouseDown={onMouseDown}>
+        <span className="aero-title-text flex items-center gap-2">
+          {Icon && <Icon size={14} className="text-blue-700" />} {title}
+        </span>
+        <div className="ml-auto">
+          <div className="win-control win-close" onClick={onClose}><X size={12} color="white" /></div>
+        </div>
+      </div>
+      <div className="flex-1 bg-white/90 overflow-hidden flex flex-col relative z-10">
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const PaintApp = ({ onSend, onClose }) => {
+  const canvasRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [color, setColor] = useState('#000000');
+  const [brushSize, setBrushSize] = useState(3);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  const startDrawing = (e) => {
+    setIsDrawing(true);
+    draw(e);
+  };
+  
+  const draw = (e) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    ctx.lineWidth = brushSize;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = color;
+    
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+  
+  const stopDrawing = () => {
+    setIsDrawing(false);
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.beginPath();
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const handleSend = () => {
+    if (canvasRef.current) {
+      onSend(canvasRef.current.toDataURL('image/png'));
+      onClose();
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full w-full">
+      <div className="flex items-center gap-2 p-2 bg-slate-100 border-b border-slate-300 shadow-sm">
+        <div className="flex gap-1">
+          {['#000000', '#ff0000', '#0000ff', '#008000', '#ffff00', '#ffa500'].map(c => (
+            <button key={c} onClick={() => setColor(c)} className={`w-6 h-6 rounded-full border-2 ${color === c ? 'border-slate-800 scale-110' : 'border-slate-300'}`} style={{backgroundColor: c}} />
+          ))}
+        </div>
+        <div className="w-px h-6 bg-slate-300 mx-2"></div>
+        <input type="range" min="1" max="15" value={brushSize} onChange={(e) => setBrushSize(e.target.value)} className="w-24 aero-slider" />
+        <div className="w-px h-6 bg-slate-300 mx-2"></div>
+        <button onClick={clearCanvas} className="aero-btn px-3 py-1 text-xs">Очистить</button>
+        <button onClick={handleSend} className="aero-btn px-4 py-1 text-xs font-bold ml-auto flex items-center gap-1"><Send size={12}/> Отправить</button>
+      </div>
+      <div className="flex-1 bg-slate-200 p-2 overflow-hidden flex items-center justify-center cursor-crosshair">
+        <canvas 
+          ref={canvasRef} width={400} height={300} 
+          onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing}
+          className="bg-white shadow-md border border-slate-300 rounded touch-none"
+        />
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -795,7 +934,6 @@ export default function App() {
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedUsersForGroup, setSelectedUsersForGroup] = useState([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, msgId: null });
   const [activeMenuMsgId, setActiveMenuMsgId] = useState(null);
   const [viewingMessage, setViewingMessage] = useState(null);
   const [language, setLanguage] = useState('ru');
@@ -812,6 +950,7 @@ export default function App() {
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [gadgetNotes, setGadgetNotes] = useState(localStorage.getItem('aero_notes') || '');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showPaint, setShowPaint] = useState(false);
   const [cpuUsage, setCpuUsage] = useState(15);
   
   const [volumes, setVolumes] = useState({ notify: 0.5, call: 0.5, system: 0.3 });
@@ -1096,7 +1235,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-
   const handleAuth = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -1167,9 +1305,9 @@ export default function App() {
     setStartupSoundPlayed(false); // Сбрасываем флаг звука запуска
   };
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e, customType = null, customData = null) => {
     e?.preventDefault();
-    if (!inputText.trim() || !activeChatId || !user) return;
+    if ((!inputText.trim() && !customData) || !activeChatId || !user) return;
 
     const msgsRef = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
 
@@ -1189,8 +1327,9 @@ export default function App() {
     // Сохраняем в Firebase
     await addDoc(msgsRef, {
       chatId: activeChatId,
-      type: 'text',
-      text: inputText.trim(),
+      type: customType || 'text',
+      text: customType ? null : inputText.trim(),
+      imageUrl: customType === 'image' ? customData : null,
       replyTo: replyingTo ? { 
         id: replyingTo.id, 
         text: replyingTo.text || (replyingTo.type === 'image' ? `📷 ${t('image')}` : t('message')), 
@@ -1199,11 +1338,26 @@ export default function App() {
       senderId: user.uid,
       senderName: loginName.trim(),
       timestamp: Date.now(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      reactions: {}
     });
 
     setInputText('');
     setReplyingTo(null);
+  };
+  
+  const handleReaction = async (msgId, emoji) => {
+    if (!user) return;
+    const msgRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', msgId);
+    const msg = messages[activeChatId].find(m => m.id === msgId);
+    
+    // Toggle reaction logic
+    const hasReacted = msg.reactions && msg.reactions[emoji] && msg.reactions[emoji].includes(user.uid);
+    
+    await updateDoc(msgRef, {
+      [`reactions.${emoji}`]: hasReacted ? arrayRemove(user.uid) : arrayUnion(user.uid)
+    });
+    setActiveMenuMsgId(null);
   };
   
   // --- Drag and Drop Handler ---
@@ -1211,7 +1365,6 @@ export default function App() {
     e.preventDefault();
     setIsDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      // Reuse existing file upload logic, mocking the event
       handleFileUpload({ target: { files: e.dataTransfer.files } });
     }
   };
@@ -1263,7 +1416,8 @@ export default function App() {
             senderId: user.uid,
             senderName: loginName.trim(),
             timestamp: Date.now(),
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            reactions: {}
           });
         } catch (err) {
           console.error("Ошибка при отправке картинки:", err);
@@ -1318,7 +1472,8 @@ export default function App() {
             senderId: user.uid,
             senderName: loginName.trim(),
             timestamp: Date.now(),
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            reactions: {}
           });
         } catch (err) {
           console.error("Ошибка отправки голосового:", err);
@@ -1387,7 +1542,8 @@ export default function App() {
       senderId: user.uid,
       senderName: loginName.trim(),
       timestamp: Date.now(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      reactions: {}
     });
     
     playSystemSound('notify', currentSoundScheme, volumes.notify);
@@ -1420,7 +1576,6 @@ export default function App() {
       }
 
       // 2. Инициализируем PeerJS
-      // debug: 2 покажет ошибки в консоли браузера (F12)
       peer = new Peer(undefined, {
         host: '0.peerjs.com',
         port: 443,
@@ -1439,12 +1594,10 @@ export default function App() {
           setCallStatus('waiting'); // Ждем собеседника
         } else {
           // Я - присоединившийся (Гость)
-          // Слушаем, когда появится ID хоста
           unsubscribe = onSnapshot(callDocRef, (snap) => {
             if (cancelled) return;
             const data = snap.data();
             if (data && data.hostPeerId) {
-              // Звоним хосту
               const call = peer.call(data.hostPeerId, localStream);
               setCallStatus('connected');
               call.on('stream', (remoteStream) => {
@@ -1511,12 +1664,10 @@ export default function App() {
   const handleStartDM = async (targetUserId) => {
     if (!user || targetUserId === user.uid) return;
     
-    // Генерируем уникальный ID для чата двух пользователей (по алфавиту)
     const dmId = [user.uid, targetUserId].sort().join('_');
     
     const existingChat = chats.find(c => c.id === dmId);
     if (!existingChat) {
-      // Создаем новую комнату в БД
       const chatRef = doc(db, 'artifacts', appId, 'public', 'data', 'chats', dmId);
       await setDoc(chatRef, {
         isGroup: false,
@@ -1555,14 +1706,12 @@ export default function App() {
   const handlePinMessage = async (msgId) => {
     if (!activeChatId) return;
     const chatRef = doc(db, 'artifacts', appId, 'public', 'data', 'chats', activeChatId);
-    // Toggle pin: if already pinned, unpin (set to null)
     const isPinned = activeChat?.pinnedMessageId === msgId;
     await setDoc(chatRef, { pinnedMessageId: isPinned ? null : msgId }, { merge: true });
   };
 
   // --- Удаление сообщения ---
   const requestDeleteMessage = (msgId) => {
-    // Soft delete (move to Recycle Bin)
     const msgRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', msgId);
     updateDoc(msgRef, { deletedAt: Date.now() });
     setActiveMenuMsgId(null);
@@ -1643,7 +1792,6 @@ export default function App() {
     ? `${typingUsers.join(', ')} ${typingUsers.length > 1 ? t('typingPlural') : t('typing')}` 
     : '';
 
-  // Данные активного чата (для подмены имени в шапке ЛС)
   let activeChatDetails = null;
   if (activeChat) {
     if (activeChat.isGroup) {
@@ -1658,7 +1806,6 @@ export default function App() {
     }
   }
 
-  // Данные для модального окна профиля
   const isMyProfile = viewProfileId === user?.uid;
   const profileData = isMyProfile
     ? { name: loginName, avatar: myAvatarUrl || myAvatar, status: myStatus, customStatus: myCustomStatus, id: user?.uid }
@@ -1670,26 +1817,17 @@ export default function App() {
         id: viewProfileId 
       };
 
-  // Pinned Message Data
   const pinnedMessageId = activeChat?.pinnedMessageId;
   const pinnedMessage = pinnedMessageId ? (messages[activeChatId] || []).find(m => m.id === pinnedMessageId) : null;
-
-  // Achievements Calculation
-  const myMsgCount = Object.values(messages).flat().filter(m => m.senderId === user?.uid).length;
-  const achievements = [
-    { id: 'newbie', name: 'Новичок', icon: <Smile size={20} className="text-blue-500"/>, condition: myMsgCount >= 1 },
-    { id: 'active', name: 'Активист', icon: <Award size={20} className="text-yellow-500"/>, condition: myMsgCount >= 50 },
-    { id: 'master', name: 'Мастер ГС', icon: <Mic size={20} className="text-red-500"/>, condition: Object.values(messages).flat().filter(m => m.senderId === user?.uid && m.type === 'audio').length >= 10 },
-  ].filter(a => a.condition);
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: aeroStyles }} />
       
-      <div className="h-screen w-full flex items-center justify-center p-4 sm:p-8">
+      <div className="h-screen w-full flex items-center justify-center p-4 sm:p-8 relative">
         {!isLoggedIn ? (
-          // --- LOGIN SCREEN ---
-          <div className="aero-window w-full max-w-sm shadow-2xl animate-gentle-fade-in-up">
+          // --- LOGIN SCREEN (ORIGINAL) ---
+          <div className="aero-window w-full max-w-sm shadow-2xl animate-gentle-fade-in-up z-10">
             <div className="aero-titlebar">
               <span className="aero-title-text flex items-center gap-2">
                 <Smile size={16} className="text-blue-600" /> {t('loginTitle')}
@@ -1772,7 +1910,7 @@ export default function App() {
           </div>
         ) : (
           // --- MAIN APP WINDOW ---
-          <div className={`aero-window flex flex-col shadow-2xl relative transition-all duration-300 ${isFullScreen ? 'fixed inset-0 w-full h-full max-w-none rounded-none z-50' : 'w-full h-full md:h-[85vh] md:max-w-5xl'}`}>
+          <div className={`aero-window flex flex-col shadow-2xl relative transition-all duration-300 z-10 ${isFullScreen ? 'fixed inset-0 w-full h-full max-w-none rounded-none z-50' : 'w-full h-full md:h-[85vh] md:max-w-5xl'}`}>
             
             {/* Window Controls */}
             <div className="aero-titlebar">
@@ -1791,7 +1929,7 @@ export default function App() {
             <div className="flex flex-1 overflow-hidden glass-panel relative z-10">
               
               {/* SIDEBAR */}
-              <div className={`w-full md:w-1/3 md:min-w-[250px] md:max-w-[350px] border-r border-white/50 flex flex-col bg-white/20 ${activeChatId ? 'hidden md:flex' : 'flex'}`}>
+              <div className={`w-full md:w-[320px] border-r border-white/50 flex flex-col bg-white/40 ${activeChatId ? 'hidden md:flex' : 'flex'}`}>
                 {/* User Profile Header */}
                 <div 
                   className="p-3 border-b border-white/50 flex items-center gap-3 cursor-pointer explorer-hover transition-colors"
@@ -1842,7 +1980,6 @@ export default function App() {
                 {/* Chat List */}
                 <div className="flex-1 overflow-y-auto">
                   {searchQuery.trim() ? (
-                    // Рендер результатов поиска пользователей
                     Object.entries(usersData)
                       .filter(([uid, u]) => uid !== user.uid && u.name?.toLowerCase().includes(searchQuery.toLowerCase()))
                       .map(([uid, u]) => (
@@ -1862,7 +1999,6 @@ export default function App() {
                         </div>
                       ))
                   ) : (
-                    // Обычный список чатов (с сортировкой по свежим сообщениям)
                     [...chats].sort((a, b) => {
                       const msgsA = messages[a.id];
                       const msgsB = messages[b.id];
@@ -1870,7 +2006,7 @@ export default function App() {
                       const timeB = msgsB && msgsB.length > 0 ? msgsB[msgsB.length - 1].timestamp : (b.timestamp || 0);
                       
                       if (timeA === timeB) return (a.order || 99) - (b.order || 99);
-                      return timeB - timeA; // Новые сообщения сверху
+                      return timeB - timeA; 
                     }).map(chat => {
                       const chatMsgs = messages[chat.id] || [];
                       let lastMsg = t('noMessages');
@@ -1882,7 +2018,6 @@ export default function App() {
                         else lastMsg = lastObj.text;
                       }
                       
-                      // Определяем имя и аватарку для чата (свои для групп, чужие для ЛС)
                       let chatName = chat.name;
                       let chatAvatar = chat.avatar;
                       let chatStatus = null;
@@ -1892,10 +2027,9 @@ export default function App() {
                         const otherUser = usersData[otherUserId] || {};
                         chatName = otherUser.name || t('unknown');
                         chatAvatar = otherUser.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${otherUserId}`;
-                      chatStatus = getEffectiveStatus(otherUserId, otherUser);
+                        chatStatus = getEffectiveStatus(otherUserId, otherUser);
                       }
 
-                      // Вычисляем количество непрочитанных
                       const myLastRead = chat.lastRead?.[user?.uid] || 0;
                       const unreadCount = chatMsgs.filter(m => m.timestamp > myLastRead && m.senderId !== user?.uid).length;
                       
@@ -1918,7 +2052,6 @@ export default function App() {
                                   {chat.isGroup && <Users size={12} className="text-blue-600"/>}
                                   {chatName}
                                 </span>
-                                {/* Бейдж непрочитанных сообщений */}
                                 {unreadCount > 0 && (
                                   <div className="aero-badge px-2 py-0.5 rounded-full text-[10px] font-bold ml-2">
                                     {unreadCount}
@@ -2021,8 +2154,8 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 relative">
+                    {/* Messages Feed */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 relative" onClick={() => setActiveMenuMsgId(null)}>
                       {(messages[activeChatId] || []).filter(m => !m.deletedAt).map((msg) => {
                         // --- Рендер приглашения на звонок ---
                         if (msg.type === 'call') {
@@ -2057,13 +2190,12 @@ export default function App() {
                         const senderData = usersData[msg.senderId] || {};
                         const senderAvatar = senderData.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${msg.senderId}`;
 
-                        // Проверяем, прочитал ли кто-то наше сообщение
                         const isRead = activeChat?.isGroup 
                             ? Object.entries(activeChat.lastRead || {}).some(([uid, ts]) => uid !== user?.uid && ts >= msg.timestamp)
                             : (activeChat?.lastRead?.[activeChat.participants?.find(id => id !== user?.uid)] || 0) >= msg.timestamp;
 
                         return (
-                          <div key={msg.id} id={`msg-${msg.id}`} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                          <div key={msg.id} id={`msg-${msg.id}`} className={`flex gap-2 group ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                             <div className="relative shrink-0 self-end mb-1">
                               <img 
                                 src={senderAvatar} 
@@ -2072,11 +2204,13 @@ export default function App() {
                                 onClick={() => setViewProfileId(msg.senderId)}
                                 title={`${t('profile')}: ${msg.senderName}`}
                               />
-                          <div className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 status-dot z-10 status-${getEffectiveStatus(msg.senderId, senderData)}`}></div>
+                              <div className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 status-dot z-10 status-${getEffectiveStatus(msg.senderId, senderData)}`}></div>
                             </div>
-                            <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                            
+                            <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[70%] relative`}>
                               {!isMe && <span className="text-xs text-slate-500 mb-1 ml-1 font-semibold">{msg.senderName}</span>}
-                              <div className={`w-full p-2.5 rounded-lg text-sm relative group break-words
+                              
+                              <div className={`w-full p-2.5 rounded-lg text-sm relative break-words
                                 ${isMe ? 'bubble-self rounded-br-none' : 'bubble-other rounded-bl-none'} 
                                 ${msg.edited ? 'italic' : ''}`}
                               >
@@ -2135,32 +2269,45 @@ export default function App() {
                                   {msg.edited && <span className="text-[9px] ml-1">{t('edited')}</span>}
                                 </div>
 
-                                {/* Меню действий (3 точки) */}
-                                <div className={`absolute top-0 ${isMe ? '-left-7' : '-right-7'} opacity-0 group-hover:opacity-100 transition-opacity ${activeMenuMsgId === msg.id ? '!opacity-100' : ''} z-50`}>
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); setActiveMenuMsgId(activeMenuMsgId === msg.id ? null : msg.id); }}
-                                    className="p-2 bg-white/80 rounded-full shadow hover:bg-blue-100 text-slate-600 border border-white/50"
-                                    title={t('actions')}
-                                  >
-                                    <MoreVertical size={16} />
-                                  </button>
-                                  
-                                  {/* Выпадающее меню */}
-                                  {activeMenuMsgId === msg.id && (
-                                    <div className={`absolute top-9 ${isMe ? 'right-0' : 'left-0'} w-40 bg-white/95 backdrop-blur-sm border border-slate-300 shadow-xl rounded-lg py-1 animate-gentle-fade-in-up flex flex-col overflow-hidden`} onClick={(e) => e.stopPropagation()}>
-                                      <button onClick={() => { setReplyingTo(msg); setActiveMenuMsgId(null); }} className="px-3 py-2.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-slate-700 transition-colors"><Reply size={14} className="text-blue-500" /> {t('reply')}</button>
-                                      {isMe && msg.type === 'text' && (
-                                        <button onClick={() => { setInputText(msg.text); setEditingMessageId(msg.id); setReplyingTo(null); setActiveMenuMsgId(null); }} className="px-3 py-2.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-slate-700 transition-colors"><Edit2 size={14} className="text-yellow-500" /> {t('edit')}</button>
-                                      )}
-                                      <button onClick={() => { handlePinMessage(msg.id); setActiveMenuMsgId(null); }} className="px-3 py-2.5 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-slate-700 transition-colors"><StickyNote size={14} className="text-green-600" /> {pinnedMessageId === msg.id ? t('unpinMessage') : t('pinMessage')}</button>
-                                      {isMe && <div className="border-t border-slate-100 my-0.5"></div>}
-                                      {isMe && (
-                                        <button onClick={() => requestDeleteMessage(msg.id)} className="px-3 py-2.5 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600 transition-colors"><Trash2 size={14} /> {t('delete')}</button>
-                                      )}
-                                    </div>
-                                  )}
+                                {/* Hover Reaction Menu */}
+                                <div className={`absolute top-0 ${isMe ? '-left-8' : '-right-8'} opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1 z-50`}>
+                                   <button 
+                                     onClick={(e) => { e.stopPropagation(); setActiveMenuMsgId(activeMenuMsgId === msg.id ? null : msg.id); }} 
+                                     className="p-1.5 bg-white/90 rounded-full shadow border border-slate-200 text-slate-500 hover:text-blue-500"
+                                     title={t('actions')}
+                                   >
+                                     <Smile size={14}/>
+                                   </button>
                                 </div>
+
+                                {/* Active Actions Popup */}
+                                {activeMenuMsgId === msg.id && (
+                                  <div className={`absolute top-8 ${isMe ? 'right-0' : 'left-0'} w-48 bg-white/95 backdrop-blur-md border border-slate-300 shadow-xl rounded z-50 p-2 animate-gentle-fade-in-up`} onClick={e => e.stopPropagation()}>
+                                    <div className="flex gap-1 justify-between mb-2 pb-2 border-b border-slate-200">
+                                      {REACTIONS.map(emoji => (
+                                        <button key={emoji} onClick={() => handleReaction(msg.id, emoji)} className="hover:scale-125 transition-transform text-lg">{emoji}</button>
+                                      ))}
+                                    </div>
+                                    <button onClick={() => { setReplyingTo(msg); setActiveMenuMsgId(null); }} className="w-full text-left px-2 py-1 text-sm hover:bg-blue-50 rounded flex items-center gap-2"><Reply size={14}/> {t('reply')}</button>
+                                    {isMe && msg.type === 'text' && <button onClick={() => { setInputText(msg.text); setEditingMessageId(msg.id); setActiveMenuMsgId(null); }} className="w-full text-left px-2 py-1 text-sm hover:bg-blue-50 rounded flex items-center gap-2"><Edit2 size={14}/> {t('edit')}</button>}
+                                    <button onClick={() => { handlePinMessage(msg.id); setActiveMenuMsgId(null); }} className="w-full text-left px-2 py-1 text-sm hover:bg-blue-50 rounded flex items-center gap-2"><StickyNote size={14}/> {pinnedMessageId === msg.id ? t('unpinMessage') : t('pinMessage')}</button>
+                                    {isMe && <div className="border-t border-slate-100 my-1"></div>}
+                                    {isMe && <button onClick={() => requestDeleteMessage(msg.id)} className="w-full text-left px-2 py-1 text-sm hover:bg-red-50 text-red-600 rounded flex items-center gap-2"><Trash2 size={14}/> {t('delete')}</button>}
+                                  </div>
+                                )}
                               </div>
+
+                              {/* Reactions Display */}
+                              {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1 z-10 -mb-2">
+                                  {Object.entries(msg.reactions).map(([emoji, uids]) => uids.length > 0 && (
+                                    <div key={emoji} className="reaction-pill" onClick={() => handleReaction(msg.id, emoji)}>
+                                      <span>{emoji}</span> <span className="font-bold text-slate-600">{uids.length}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
                             </div>
                           </div>
                         );
@@ -2222,7 +2369,7 @@ export default function App() {
                         </div>
                       ) : (
                         // --- Обычный UI ввода ---
-                        <form onSubmit={handleSendMessage} className="flex gap-2">
+                        <form onSubmit={(e) => handleSendMessage(e, null, null)} className="flex gap-2">
                           <input
                             type="file"
                             accept="image/*"
@@ -2242,6 +2389,15 @@ export default function App() {
                             ) : (
                               <Paperclip size={20} />
                             )}
+                          </button>
+                          
+                          <button 
+                            type="button" 
+                            onClick={() => setShowPaint(true)} 
+                            className="p-2 text-slate-600 hover:text-blue-600 bg-white/70 rounded border border-white shadow-sm flex items-center justify-center w-10 h-10" 
+                            title="Нарисовать (Paint)"
+                          >
+                            <Brush size={20} />
                           </button>
                           
                           <input
@@ -2289,7 +2445,7 @@ export default function App() {
                   </>
                 ) : (
                   // Empty State
-                  <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
+                  <div className="flex-1 flex flex-col items-center justify-center text-slate-500 z-10">
                     <div className="w-24 h-24 mb-4 opacity-50 bg-gradient-to-br from-blue-300 to-transparent rounded-full flex items-center justify-center border-4 border-white shadow-inner">
                       <Smile size={48} className="text-blue-500" />
                     </div>
@@ -2300,58 +2456,224 @@ export default function App() {
                 )}
               </div>
             </div>
-            
-            {/* GADGETS SIDEBAR */}
+
+            {/* --- GADGETS SIDEBAR --- */}
             {showGadgets && (
-              <div className="absolute top-8 right-0 bottom-0 w-60 gadget-sidebar p-4 flex flex-col gap-4 z-20 animate-gentle-fade-in-up overflow-y-auto">
+              <div className="hidden lg:flex flex-col gap-4 absolute right-4 top-8 bottom-8 w-56 z-0" style={{ paddingLeft: '20px' }}>
                 {/* Clock Gadget */}
-                <div className="gadget-item p-3 flex flex-col items-center justify-center aspect-square">
-                  <Clock size={48} className="text-slate-800 drop-shadow-md mb-2" />
-                  <div className="text-xl font-bold text-slate-800" style={{textShadow: '0 1px 0 rgba(255,255,255,0.8)'}}>
-                    {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </div>
+                <div className="bg-white/20 border border-white/40 p-4 rounded-xl shadow-lg backdrop-blur-md flex flex-col items-center text-slate-800">
+                  <Clock size={40} className="mb-2 opacity-80"/>
+                  <div className="text-2xl font-bold tracking-widest">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                 </div>
-                
-                {/* CPU Gadget */}
-                <div className="gadget-item p-3">
-                  <div className="flex items-center gap-2 mb-2 text-slate-800 font-bold text-xs">
-                    <Cpu size={16} /> CPU Usage
-                  </div>
-                  <div className="w-full bg-slate-300/50 rounded-full h-3 border border-slate-400/50 overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-green-400 to-red-500 transition-all duration-500" style={{width: `${cpuUsage}%`}}></div>
-                  </div>
-                  <div className="text-right text-xs font-mono mt-1">{Math.round(cpuUsage)}%</div>
-                </div>
-                
-                {/* Sticky Notes Gadget */}
-                <div className="gadget-item p-0 overflow-hidden bg-[#fff9c4] border-[#fbc02d]">
-                  <div className="bg-[#fbc02d]/20 p-1 border-b border-[#fbc02d]/30 flex justify-between items-center px-2">
-                    <span className="text-[10px] font-bold text-[#5d4037]">Notes</span>
-                    <Plus size={10} className="text-[#5d4037] cursor-pointer"/>
-                  </div>
-                  <textarea 
-                    className="w-full h-32 bg-transparent resize-none p-2 text-xs text-[#5d4037] focus:outline-none font-handwriting"
-                    value={gadgetNotes}
-                    onChange={(e) => { setGadgetNotes(e.target.value); localStorage.setItem('aero_notes', e.target.value); }}
-                    placeholder="Type a note..."
-                  />
+                {/* Music Player Gadget */}
+                <div className="bg-white/20 border border-white/40 p-4 rounded-xl shadow-lg backdrop-blur-md flex flex-col items-center">
+                  <div className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1"><Music size={12}/> Aero Vibes FM</div>
+                  <audio controls loop className="w-full h-8 opacity-70 hover:opacity-100 transition-opacity">
+                     <source src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Tours/Enthusiast/Tours_-_01_-_Enthusiast.mp3" type="audio/mpeg" />
+                  </audio>
                 </div>
               </div>
             )}
 
-            {/* PROFILE MODAL (Windows Media Player Settings Style) */}
-            {viewProfileId && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                <div className="aero-window w-full max-w-[400px] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80">
+            {/* CALL MODAL */}
+            {activeCallRoom && (
+              <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-6">
+                <div className="aero-window w-full h-full md:max-w-6xl md:max-h-[800px] flex flex-col shadow-2xl animate-gentle-fade-in-up border border-white/80 overflow-hidden">
                   <div className="aero-titlebar cursor-move">
                     <span className="aero-title-text flex items-center gap-2">
-                      {t('properties')}: {isMyProfile ? t('myProfile') : t('userProfile')}
+                      <Phone size={14} className="text-blue-700" />
+                      {t('conference')}: {chats.find(c => c.id === activeCallChatId)?.name || t('personalCall')}
                     </span>
                     <div className="ml-auto flex gap-1">
-                      <div className="win-control win-close" onClick={() => setViewProfileId(null)}><X size={12} color="white" /></div>
+                      <div className="win-control win-close" onClick={() => window.location.reload()} title="Force Close"><X size={12} color="white" /></div>
                     </div>
                   </div>
                   
+                  <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden">
+                    {/* Remote Video */}
+                    <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-contain" />
+                    
+                    {/* Local Video (PIP) */}
+                    <div className="absolute bottom-4 right-4 w-32 h-24 bg-slate-800 border-2 border-white/50 rounded shadow-lg overflow-hidden z-20">
+                      <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                    </div>
+
+                    {/* Status Overlay */}
+                    {callStatus !== 'connected' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
+                        <div className="text-white font-bold animate-pulse text-xl">{callStatus === 'waiting' ? 'Ожидание собеседника...' : 'Соединение...'}</div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-3 bg-gradient-to-t from-slate-200 to-white border-t border-white flex justify-center gap-4 glass-panel">
+                    <button onClick={() => setActiveCallRoom(null)} className="aero-btn px-8 py-2 font-bold flex items-center gap-2 text-base shadow-md" style={{background: 'linear-gradient(180deg, #ff8c8c 0%, #e81123 100%)', borderColor: '#c3000f'}}>
+                      <Phone size={18} className="rotate-[135deg]" /> {t('hangup')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* CREATE GROUP MODAL */}
+            {showGroupModal && (
+              <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                <div className="aero-window w-full max-w-[350px] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80">
+                  <div className="aero-titlebar">
+                    <span className="aero-title-text flex items-center gap-2">{t('createGroup')}</span>
+                    <div className="ml-auto flex gap-1">
+                      <div className="win-control win-close" onClick={() => setShowGroupModal(false)}><X size={12} color="white" /></div>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-white/90">
+                    <div className="mb-4">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">{t('groupName')}</label>
+                      <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="aero-input w-full px-2 py-1 rounded" placeholder={t('groupNamePlaceholder')} />
+                    </div>
+                    <div className="mb-4">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">{t('participants')}</label>
+                      <div className="h-32 overflow-y-auto border border-slate-300 bg-white rounded p-1">
+                        {Object.entries(usersData).filter(([uid]) => uid !== user.uid).map(([uid, u]) => (
+                          <label key={uid} className="flex items-center gap-2 p-1 hover:bg-blue-50 cursor-pointer rounded">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedUsersForGroup.includes(uid)}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedUsersForGroup([...selectedUsersForGroup, uid]);
+                                else setSelectedUsersForGroup(selectedUsersForGroup.filter(id => id !== uid));
+                              }}
+                            />
+                            <span className="text-sm">{u.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <button onClick={handleCreateGroup} className="aero-btn w-full py-1.5 font-bold">{t('create')}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PARTICIPANTS MODAL */}
+            {showParticipantsModal && (
+              <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                <div className="aero-window w-full max-w-[350px] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80">
+                  <div className="aero-titlebar">
+                    <span className="aero-title-text flex items-center gap-2"><Users size={14} className="text-blue-600"/> {t('participants')}</span>
+                    <div className="ml-auto flex gap-1">
+                      <div className="win-control win-close" onClick={() => setShowParticipantsModal(false)}><X size={12} color="white" /></div>
+                    </div>
+                  </div>
+                  <div className="p-2 bg-white/90 h-[300px] overflow-y-auto">
+                    {activeChat?.participants?.map(uid => {
+                      const u = usersData[uid] || {};
+                      return (
+                        <div key={uid} onClick={() => { setViewProfileId(uid); setShowParticipantsModal(false); }} className="flex items-center gap-3 p-2 hover:bg-blue-50 cursor-pointer rounded border-b border-slate-100 last:border-0">
+                          <div className="relative">
+                            <img src={u.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`} className="w-10 h-10 rounded bg-white border border-slate-300 p-0.5 object-cover" />
+                            <div className={`absolute -bottom-1 -right-1 w-3 h-3 status-dot z-10 status-${getEffectiveStatus(uid, u)}`}></div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-slate-800 text-sm truncate">{u.name || t('unknown')}</div>
+                            <div className="text-xs text-slate-500 truncate">{u.customStatus || getStatusText(u.status || 'offline')}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- DRAGGABLE WINDOWS --- */}
+
+            {/* ADMIN PANEL */}
+            {showAdminPanel && (
+              <DraggableWindow title="Панель Администратора" icon={Shield} onClose={() => setShowAdminPanel(false)} initialPos={{x: window.innerWidth/2 - 300, y: 100}} width={600} zIndex={150}>
+                  <div className="flex-1 bg-white/90 p-4 overflow-y-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-300">
+                          <th className="p-2">Пользователь</th>
+                          <th className="p-2">Email</th>
+                          <th className="p-2">Статус</th>
+                          <th className="p-2">Действия</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(usersData).map(([uid, u]) => (
+                          <tr key={uid} className="border-b border-slate-100 hover:bg-blue-50">
+                            <td className="p-2 flex items-center gap-2">
+                              <img src={u.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`} className="w-6 h-6 rounded-full border border-slate-300"/>
+                              <span className="font-bold text-slate-700">{u.name}</span>
+                            </td>
+                            <td className="p-2 text-slate-600">{u.email || '-'}</td>
+                            <td className="p-2">
+                                {u.isBanned ? (
+                                  <div className="flex flex-col">
+                                    <span className="text-red-600 font-bold">Забанен</span>
+                                    <span className="text-[10px] text-slate-500 max-w-[150px] truncate" title={u.banReason}>{u.banReason}</span>
+                                  </div>
+                                ) : <span className="text-green-600">Активен</span>}
+                            </td>
+                            <td className="p-2">
+                              {uid !== user.uid && (
+                                <button 
+                                  onClick={() => toggleBan(uid, u.isBanned)}
+                                  className={`px-2 py-1 rounded text-xs font-bold text-white shadow-sm ${u.isBanned ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}
+                                >
+                                  {u.isBanned ? 'Разбанить' : 'Забанить'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+              </DraggableWindow>
+            )}
+
+            {/* MS Paint Mini-App */}
+            {showPaint && (
+              <DraggableWindow title="Aero Paint" icon={Brush} onClose={() => setShowPaint(false)} initialPos={{x: window.innerWidth/2 - 200, y: 100}} zIndex={160}>
+                <PaintApp onSend={(dataUrl) => { handleSendMessage(null, 'image', dataUrl); }} onClose={() => setShowPaint(false)} />
+              </DraggableWindow>
+            )}
+
+            {/* Recycle Bin Window */}
+            {showRecycleBin && (
+              <DraggableWindow title={t('recycleBin')} icon={Trash} onClose={() => setShowRecycleBin(false)} initialPos={{x: 100, y: 100}} width={450} height={400} zIndex={170}>
+                <div className="flex-1 overflow-y-auto p-2 bg-slate-50">
+                  {(messages[activeChatId] || []).filter(m => m.deletedAt).length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                      <Trash size={48} className="opacity-20 mb-2"/>
+                      <p>{t('noMessages')}</p>
+                    </div>
+                  ) : (
+                    (messages[activeChatId] || []).filter(m => m.deletedAt).map(msg => (
+                      <div key={msg.id} className="flex items-center justify-between p-2 border-b border-slate-200 hover:bg-red-50">
+                        <div className="flex-1 truncate text-sm">
+                          <span className="font-bold text-slate-700">{msg.senderName}:</span> {msg.text || 'Медиа'}
+                          <div className="text-[10px] text-slate-400">Удалено: {new Date(msg.deletedAt).toLocaleTimeString()}</div>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => restoreMessage(msg.id)} className="p-1 hover:bg-green-100 rounded text-green-600" title={t('restore')}><RefreshCw size={14}/></button>
+                          <button onClick={() => permanentDeleteMessage(msg.id)} className="p-1 hover:bg-red-100 rounded text-red-600" title={t('deleteForever')}><X size={14}/></button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="p-2 bg-slate-100 border-t border-slate-300 flex justify-end">
+                  <button onClick={emptyRecycleBin} className="aero-btn px-4 py-1 text-xs flex items-center gap-1"><Trash2 size={12}/> {t('emptyBin')}</button>
+                </div>
+              </DraggableWindow>
+            )}
+
+            {/* Profile Window */}
+            {viewProfileId && (
+              <DraggableWindow title={isMyProfile ? t('myProfile') : t('userProfile')} icon={Settings} onClose={() => setViewProfileId(null)} initialPos={{x: window.innerWidth/2 - 200, y: window.innerHeight/2 - 150}} width={400} zIndex={180}>
                   <div className="bg-white/90 p-4">
                     <div className="flex gap-1 border-b border-slate-300 mb-4 px-1">
                       <div onClick={() => setActiveTab('general')} className={`px-3 py-1 border border-slate-300 rounded-t text-sm font-semibold -mb-px z-10 cursor-pointer ${activeTab === 'general' ? 'bg-white border-b-transparent' : 'bg-slate-100 text-slate-500'}`}>{t('general')}</div>
@@ -2476,227 +2798,15 @@ export default function App() {
                         {isMyProfile ? t('cancel') : t('close')}
                     </button>
                   </div>
-                </div>
-              </div>
+              </DraggableWindow>
             )}
 
-            {/* CALL MODAL */}
-            {activeCallRoom && (
-              <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-6">
-                <div className="aero-window w-full h-full md:max-w-6xl md:max-h-[800px] flex flex-col shadow-2xl animate-gentle-fade-in-up border border-white/80 overflow-hidden">
-                  <div className="aero-titlebar cursor-move">
-                    <span className="aero-title-text flex items-center gap-2">
-                      <Phone size={14} className="text-blue-700" />
-                      {t('conference')}: {chats.find(c => c.id === activeCallChatId)?.name || t('personalCall')}
-                    </span>
-                    <div className="ml-auto flex gap-1">
-                      <div className="win-control win-close" onClick={() => window.location.reload()} title="Force Close"><X size={12} color="white" /></div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden">
-                    {/* Remote Video */}
-                    <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-contain" />
-                    
-                    {/* Local Video (PIP) */}
-                    <div className="absolute bottom-4 right-4 w-32 h-24 bg-slate-800 border-2 border-white/50 rounded shadow-lg overflow-hidden z-20">
-                      <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                    </div>
-
-                    {/* Status Overlay */}
-                    {callStatus !== 'connected' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
-                        <div className="text-white font-bold animate-pulse text-xl">{callStatus === 'waiting' ? 'Ожидание собеседника...' : 'Соединение...'}</div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-3 bg-gradient-to-t from-slate-200 to-white border-t border-white flex justify-center gap-4 glass-panel">
-                    <button onClick={() => setActiveCallRoom(null)} className="aero-btn px-8 py-2 font-bold flex items-center gap-2 text-base shadow-md" style={{background: 'linear-gradient(180deg, #ff8c8c 0%, #e81123 100%)', borderColor: '#c3000f'}}>
-                      <Phone size={18} className="rotate-[135deg]" /> {t('hangup')}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* CREATE GROUP MODAL */}
-            {showGroupModal && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                <div className="aero-window w-full max-w-[350px] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80">
-                  <div className="aero-titlebar">
-                    <span className="aero-title-text flex items-center gap-2">{t('createGroup')}</span>
-                    <div className="ml-auto flex gap-1">
-                      <div className="win-control win-close" onClick={() => setShowGroupModal(false)}><X size={12} color="white" /></div>
-                    </div>
-                  </div>
-                  <div className="p-4 bg-white/90">
-                    <div className="mb-4">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">{t('groupName')}</label>
-                      <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="aero-input w-full px-2 py-1 rounded" placeholder={t('groupNamePlaceholder')} />
-                    </div>
-                    <div className="mb-4">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">{t('participants')}</label>
-                      <div className="h-32 overflow-y-auto border border-slate-300 bg-white rounded p-1">
-                        {Object.entries(usersData).filter(([uid]) => uid !== user.uid).map(([uid, u]) => (
-                          <label key={uid} className="flex items-center gap-2 p-1 hover:bg-blue-50 cursor-pointer rounded">
-                            <input 
-                              type="checkbox" 
-                              checked={selectedUsersForGroup.includes(uid)}
-                              onChange={(e) => {
-                                if (e.target.checked) setSelectedUsersForGroup([...selectedUsersForGroup, uid]);
-                                else setSelectedUsersForGroup(selectedUsersForGroup.filter(id => id !== uid));
-                              }}
-                            />
-                            <span className="text-sm">{u.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    <button onClick={handleCreateGroup} className="aero-btn w-full py-1.5 font-bold">{t('create')}</button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PARTICIPANTS MODAL */}
-            {showParticipantsModal && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                <div className="aero-window w-full max-w-[350px] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80">
-                  <div className="aero-titlebar">
-                    <span className="aero-title-text flex items-center gap-2"><Users size={14} className="text-blue-600"/> {t('participants')}</span>
-                    <div className="ml-auto flex gap-1">
-                      <div className="win-control win-close" onClick={() => setShowParticipantsModal(false)}><X size={12} color="white" /></div>
-                    </div>
-                  </div>
-                  <div className="p-2 bg-white/90 h-[300px] overflow-y-auto">
-                    {activeChat?.participants?.map(uid => {
-                      const u = usersData[uid] || {};
-                      return (
-                        <div key={uid} onClick={() => { setViewProfileId(uid); setShowParticipantsModal(false); }} className="flex items-center gap-3 p-2 hover:bg-blue-50 cursor-pointer rounded border-b border-slate-100 last:border-0">
-                          <div className="relative">
-                            <img src={u.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`} className="w-10 h-10 rounded bg-white border border-slate-300 p-0.5 object-cover" />
-                            <div className={`absolute -bottom-1 -right-1 w-3 h-3 status-dot z-10 status-${getEffectiveStatus(uid, u)}`}></div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-bold text-slate-800 text-sm truncate">{u.name || t('unknown')}</div>
-                            <div className="text-xs text-slate-500 truncate">{u.customStatus || getStatusText(u.status || 'offline')}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ADMIN PANEL */}
-            {showAdminPanel && (
-              <div className="absolute inset-0 z-[300] flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                <div className="aero-window w-full max-w-2xl h-[500px] max-h-[80vh] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80 flex flex-col">
-                  <div className="aero-titlebar">
-                    <span className="aero-title-text flex items-center gap-2"><Shield size={14} className="text-red-600"/> Панель Администратора</span>
-                    <div className="ml-auto"><div className="win-control win-close" onClick={() => setShowAdminPanel(false)}><X size={12} color="white" /></div></div>
-                  </div>
-                  <div className="flex-1 bg-white/90 p-4 overflow-y-auto">
-                    <table className="w-full text-sm text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-300">
-                          <th className="p-2">Пользователь</th>
-                          <th className="p-2">Email</th>
-                          <th className="p-2">Статус</th>
-                          <th className="p-2">Действия</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(usersData).map(([uid, u]) => (
-                          <tr key={uid} className="border-b border-slate-100 hover:bg-blue-50">
-                            <td className="p-2 flex items-center gap-2">
-                              <img src={u.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`} className="w-6 h-6 rounded-full border border-slate-300"/>
-                              <span className="font-bold text-slate-700">{u.name}</span>
-                            </td>
-                            <td className="p-2 text-slate-600">{u.email || '-'}</td>
-                            <td className="p-2">
-                                {u.isBanned ? (
-                                  <div className="flex flex-col">
-                                    <span className="text-red-600 font-bold">Забанен</span>
-                                    <span className="text-[10px] text-slate-500 max-w-[150px] truncate" title={u.banReason}>{u.banReason}</span>
-                                  </div>
-                                ) : <span className="text-green-600">Активен</span>}
-                            </td>
-                            <td className="p-2">
-                              {uid !== user.uid && (
-                                <button 
-                                  onClick={() => toggleBan(uid, u.isBanned)}
-                                  className={`px-2 py-1 rounded text-xs font-bold text-white shadow-sm ${u.isBanned ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}
-                                >
-                                  {u.isBanned ? 'Разбанить' : 'Забанить'}
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* RECYCLE BIN MODAL */}
-            {showRecycleBin && (
-              <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                <div className="aero-window w-full max-w-[500px] m-4 shadow-2xl animate-gentle-fade-in-up border border-white/80 h-[400px] flex flex-col">
-                  <div className="aero-titlebar">
-                    <span className="aero-title-text flex items-center gap-2"><Trash size={14}/> {t('recycleBin')}</span>
-                    <div className="ml-auto"><div className="win-control win-close" onClick={() => setShowRecycleBin(false)}><X size={12} color="white" /></div></div>
-                  </div>
-                  <div className="flex-1 bg-white/90 p-2 overflow-y-auto">
-                    {(messages[activeChatId] || []).filter(m => m.deletedAt).length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                        <Trash size={48} className="opacity-20 mb-2"/>
-                        <p>{t('noMessages')}</p>
-                      </div>
-                    ) : (
-                      (messages[activeChatId] || []).filter(m => m.deletedAt).map(msg => (
-                        <div key={msg.id} className="flex items-center justify-between p-2 border-b border-slate-200 hover:bg-red-50">
-                          <div className="flex-1 truncate text-sm">
-                            <span className="font-bold text-slate-700">{msg.senderName}:</span> {msg.text || 'Media'}
-                            <div className="text-[10px] text-slate-400">Deleted: {new Date(msg.deletedAt).toLocaleTimeString()}</div>
-                          </div>
-                          <div className="flex gap-1">
-                            <button onClick={() => restoreMessage(msg.id)} className="p-1 hover:bg-green-100 rounded text-green-600" title={t('restore')}><RefreshCw size={14}/></button>
-                            <button onClick={() => permanentDeleteMessage(msg.id)} className="p-1 hover:bg-red-100 rounded text-red-600" title={t('deleteForever')}><X size={14}/></button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <div className="p-2 bg-slate-100 border-t border-slate-300 flex justify-end">
-                    <button onClick={emptyRecycleBin} className="aero-btn px-4 py-1 text-xs flex items-center gap-1"><Trash2 size={12}/> {t('emptyBin')}</button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* VIEW MESSAGE MODAL */}
-            {viewingMessage && (
-              <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setViewingMessage(null)}>
-                <div className="aero-window w-full max-w-4xl max-h-[90vh] m-4 flex flex-col shadow-2xl animate-gentle-fade-in-up" onClick={e => e.stopPropagation()}>
-                  <div className="aero-titlebar">
-                    <span className="aero-title-text flex items-center gap-2">{t('viewMessage')}</span>
-                    <div className="ml-auto"><div className="win-control win-close" onClick={() => setViewingMessage(null)}><X size={12} color="white" /></div></div>
-                  </div>
-                  <div className="flex-1 overflow-auto p-8 bg-white/90 flex flex-col items-center justify-center relative">
-                    {viewingMessage.type === 'image' ? (
-                       <img src={viewingMessage.imageUrl} className="max-w-full max-h-full object-contain shadow-lg rounded" />
-                    ) : (
-                       <div className="text-xl text-slate-800 whitespace-pre-wrap text-center font-medium max-w-2xl">{viewingMessage.text}</div>
-                    )}
-                    <div className="mt-6 text-sm text-slate-500">
-                      {t('sentBy')}: {viewingMessage.senderName} • {viewingMessage.time}
-                    </div>
-                  </div>
+            {/* Image Viewer */}
+            {viewingMessage && viewingMessage.type === 'image' && (
+              <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setViewingMessage(null)}>
+                <div className="relative">
+                  <button className="absolute -top-10 right-0 text-white hover:text-red-400"><X size={32}/></button>
+                  <img src={viewingMessage.imageUrl} className="max-w-full max-h-[85vh] object-contain shadow-2xl rounded border-4 border-white/20" alt="Fullscreen view" onClick={e => e.stopPropagation()}/>
                 </div>
               </div>
             )}
