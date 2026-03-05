@@ -8,7 +8,6 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, si
 import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, getDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 // --- Firebase Initialization ---
-// Функция для безопасного получения переменных окружения (предотвращает ошибку "process is not defined")
 const getEnvVar = (key, fallback) => {
   if (typeof process !== 'undefined' && process.env && process.env[key]) {
     return process.env[key];
@@ -16,8 +15,6 @@ const getEnvVar = (key, fallback) => {
   return fallback;
 };
 
-// Ключи безопасно загружаются из файла .env (если он доступен в среде выполнения).
-// ПРИМЕЧАНИЕ: Перед публикацией кода в публичный репозиторий (GitHub), замените резервные значения на пустые строки "".
 const firebaseConfig = {
   apiKey: getEnvVar('REACT_APP_FIREBASE_API_KEY', "AIzaSyCGhS6xM3WQYocSyOtY2hSwOyRMc_pqPC4"),
   authDomain: getEnvVar('REACT_APP_FIREBASE_AUTH_DOMAIN', "aerogram-362b4.firebaseapp.com"),
@@ -58,7 +55,6 @@ const SOUND_SCHEMES = {
   win7: 'Windows 7'
 };
 
-// Helper to detect URLs
 const extractUrl = (text) => {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const match = text.match(urlRegex);
@@ -274,7 +270,6 @@ const TRANSLATIONS = {
 const aeroStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600&display=swap');
 
-  /* ВАЖНО: Глобальный сброс box-sizing для исправления вылезающих инпутов */
   *, *::before, *::after {
     box-sizing: border-box;
   }
@@ -285,7 +280,6 @@ const aeroStyles = `
     --aero-highlight: rgba(255, 255, 255, 0.9);
   }
 
-  /* Slower, more beautiful animations */
   @keyframes gentle-fade-in-up {
     from {
       opacity: 0;
@@ -315,7 +309,6 @@ const aeroStyles = `
     100% { background-position: 0% 50%; }
   }
 
-  /* Main Glass Window */
   .aero-window {
     background: var(--aero-glass);
     backdrop-filter: blur(16px);
@@ -330,7 +323,6 @@ const aeroStyles = `
     position: relative;
   }
 
-  /* Titlebar with glow */
   .aero-titlebar {
     background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.2) 100%);
     border-bottom: 1px solid rgba(255,255,255,0.5);
@@ -350,7 +342,6 @@ const aeroStyles = `
     pointer-events: none;
   }
 
-  /* Glossy Buttons */
   .aero-btn {
     background: 
       linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 49%, rgba(255,255,255,0) 50%, rgba(255,255,255,0.1) 100%),
@@ -376,7 +367,6 @@ const aeroStyles = `
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
   }
 
-  /* Window Controls */
   .win-control {
     width: 28px;
     height: 18px;
@@ -404,7 +394,6 @@ const aeroStyles = `
     box-shadow: inset 0 1px 1px rgba(255,255,255,1), 0 0 5px rgba(255,255,255,0.8);
   }
 
-  /* Chat Bubbles */
   .bubble-self {
     background: 
       linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 40%),
@@ -422,7 +411,6 @@ const aeroStyles = `
     color: #333;
   }
 
-  /* List Item Hover */
   .explorer-hover:hover {
     background: linear-gradient(180deg, rgba(235, 245, 255, 0.7) 0%, rgba(210, 230, 250, 0.5) 100%);
     border-color: rgba(153, 204, 255, 0.8);
@@ -434,7 +422,6 @@ const aeroStyles = `
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
   }
 
-  /* Inputs */
   .aero-input {
     background: rgba(255, 255, 255, 0.85);
     border: 1px solid #999;
@@ -449,7 +436,6 @@ const aeroStyles = `
     background: #fff;
   }
 
-  /* Scrollbar */
   ::-webkit-scrollbar { width: 12px; }
   ::-webkit-scrollbar-track { background: rgba(255,255,255,0.2); box-shadow: inset 0 0 6px rgba(0,0,0,0.1); }
   ::-webkit-scrollbar-thumb { 
@@ -459,14 +445,12 @@ const aeroStyles = `
   }
   ::-webkit-scrollbar-thumb:hover { background: linear-gradient(90deg, #f0f0f0 0%, #cfcfcf 50%, #e0e0e0 100%); }
 
-  /* Utilities */
   .glass-panel {
     background: rgba(255, 255, 255, 0.3);
     border: 1px solid rgba(255,255,255,0.4);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
   }
 
-  /* Status Indicators */
   .status-dot {
     border-radius: 50%;
     border: 1px solid;
@@ -476,7 +460,6 @@ const aeroStyles = `
   .status-dnd { background: radial-gradient(circle at 30% 30%, #ef9a9a, #e53935); border-color: #b71c1c; box-shadow: 0 0 4px #e53935, inset 0 1px 1px rgba(255,255,255,0.8); }
   .status-invisible { background: radial-gradient(circle at 30% 30%, #e0e0e0, #9e9e9e); border-color: #616161; box-shadow: 0 0 4px #9e9e9e, inset 0 1px 1px rgba(255,255,255,0.8); }
 
-  /* Unread Badge */
   .aero-badge {
     background: linear-gradient(180deg, #ff6b6b 0%, #d81b1b 100%);
     border: 1px solid #a30b0b;
@@ -485,7 +468,6 @@ const aeroStyles = `
     text-shadow: 0 1px 1px rgba(0,0,0,0.4);
   }
 
-  /* Custom Aero Audio Slider */
   input[type=range].aero-slider {
     -webkit-appearance: none;
     background: rgba(255, 255, 255, 0.5);
@@ -508,7 +490,6 @@ const aeroStyles = `
     outline: none;
   }
 
-  /* Animated Avatar Shine */
   .shine-effect {
     position: relative;
     overflow: hidden;
@@ -531,7 +512,6 @@ const aeroStyles = `
     100% { transform: translateX(100%) rotate(30deg); }
   }
 
-  /* Aero Peek Popup */
   .aero-peek-popup {
     position: absolute;
     left: 100%;
@@ -555,14 +535,12 @@ const aeroStyles = `
     transform: translateX(0);
   }
   
-  /* Mobile-specific optimizations */
   @media (max-width: 767px) {
     .aero-peek-popup {
       display: none !important;
     }
   }
 
-  /* Sticky Note */
   .sticky-note {
     background: linear-gradient(180deg, #fff9c4 0%, #fff59d 100%);
     border: 1px solid #fbc02d;
@@ -570,7 +548,6 @@ const aeroStyles = `
     color: #5d4037;
   }
 
-  /* Gadget Sidebar */
   .gadget-sidebar {
     background: rgba(0, 0, 0, 0.2);
     border-left: 1px solid rgba(255, 255, 255, 0.3);
@@ -615,9 +592,8 @@ const playSystemSound = (type = 'notify', scheme = 'xp', volume = 0.5) => {
     osc.connect(gainNode);
     gainNode.connect(ctx.destination);
     
-    const vol = Math.max(0, Math.min(1, volume)); // Clamp 0-1
+    const vol = Math.max(0, Math.min(1, volume));
     
-    // Simple synthesis variations based on scheme
     const baseFreq = scheme === 'xp' ? 880 : (scheme === 'vista' ? 600 : 1000);
     const typeWave = scheme === 'xp' ? 'sine' : (scheme === 'vista' ? 'triangle' : 'sine');
 
@@ -645,7 +621,6 @@ const playSystemSound = (type = 'notify', scheme = 'xp', volume = 0.5) => {
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 1.5);
     } else if (type === 'trash') {
-      // Crunch sound for recycle bin
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(100, ctx.currentTime);
       osc.frequency.linearRampToValueAtTime(50, ctx.currentTime + 0.2);
@@ -659,7 +634,6 @@ const playSystemSound = (type = 'notify', scheme = 'xp', volume = 0.5) => {
   }
 };
 
-// Хелпер для конвертации Blob -> Base64
 const blobToBase64 = (blob) => {
   return new Promise((resolve, _) => {
     const reader = new FileReader();
@@ -712,7 +686,7 @@ const AeroAudioPlayer = ({ src }) => {
   };
 
   return (
-    <div className="flex items-center gap-2 bg-gradient-to-b from-white/80 to-white/40 border border-white/80 p-1.5 rounded-full shadow-sm w-full sm:w-[240px] backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+    <div className="flex items-center gap-2 bg-gradient-to-b from-white/80 to-white/40 border border-white/80 p-1.5 rounded-full shadow-sm w-full max-w-[240px] backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
       <button 
         onClick={togglePlay} 
         className="w-8 h-8 rounded-full aero-btn flex items-center justify-center shrink-0 shadow-md"
@@ -894,31 +868,25 @@ export default function App() {
   const [messages, setMessages] = useState({});
   const [inputText, setInputText] = useState('');
   
-  // Состояние профиля
   const [viewProfileId, setViewProfileId] = useState(null);
   
-  // Стейты профиля текущего пользователя
   const [myAvatarUrl, setMyAvatarUrl] = useState('');
   const [myStatus, setMyStatus] = useState('online');
   const [myCustomStatus, setMyCustomStatus] = useState('');
   const [usersData, setUsersData] = useState({});
   
-  // Стейт для поиска пользователей
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Стейт для звонков, файлов и аудиосообщений
   const [activeCallChatId, setActiveCallChatId] = useState(null);
   const [activeCallRoom, setActiveCallRoom] = useState(null);
   const [isCallVideo, setIsCallVideo] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   
-  // --- WebRTC State (PeerJS) ---
   const [callStatus, setCallStatus] = useState('idle');
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   
-  // --- Состояния для голосовых сообщений ---
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef(null);
@@ -928,7 +896,6 @@ export default function App() {
   const fileInputRef = useRef(null);
   const lastTypingRef = useRef(0);
 
-  // --- Новые стейты для функционала ---
   const [chatWallpaper, setChatWallpaper] = useState(localStorage.getItem('aero_wallpaper') || '');
   const [showWallpaperMenu, setShowWallpaperMenu] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -939,17 +906,17 @@ export default function App() {
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedUsersForGroup, setSelectedUsersForGroup] = useState([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, msgId: null });
   const [activeMenuMsgId, setActiveMenuMsgId] = useState(null);
   const [viewingMessage, setViewingMessage] = useState(null);
   const [language, setLanguage] = useState('ru');
   const t = (key) => TRANSLATIONS[language][key] || key;
   
-  // --- New Features State ---
   const [currentTheme, setCurrentTheme] = useState('blue');
   const [currentSoundScheme, setCurrentSoundScheme] = useState('win7');
-  const [hoveredChatId, setHoveredChatId] = useState(null); // Aero Peek
-  const [activeTab, setActiveTab] = useState('general'); // Profile tabs
-  const [isDragOver, setIsDragOver] = useState(false); // Drag & Drop
+  const [hoveredChatId, setHoveredChatId] = useState(null);
+  const [activeTab, setActiveTab] = useState('general');
+  const [isDragOver, setIsDragOver] = useState(false);
   
   const [showGadgets, setShowGadgets] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
@@ -961,22 +928,16 @@ export default function App() {
   const [volumes, setVolumes] = useState({ notify: 0.5, call: 0.5, system: 0.3 });
   const [timeTick, setTimeTick] = useState(0);
 
-  // --- ЗВУКОВЫЕ СТЕЙТЫ ---
   const [startupSoundPlayed, setStartupSoundPlayed] = useState(false);
   const [lastProcessedMsgId, setLastProcessedMsgId] = useState(null);
 
-  // --- URL State Sync ---
   useEffect(() => {
     const syncFromUrl = () => {
       const params = new URLSearchParams(window.location.search);
       setActiveChatId(params.get('chat') || null);
       setViewProfileId(params.get('profile') || null);
     };
-
-    // Инициализация при загрузке
     syncFromUrl();
-
-    // Слушаем кнопки "Назад/Вперед" в браузере
     window.addEventListener('popstate', syncFromUrl);
     return () => window.removeEventListener('popstate', syncFromUrl);
   }, []);
@@ -1013,18 +974,15 @@ export default function App() {
     }
   }, [activeChatId, viewProfileId, isLoggedIn]);
 
-  // ЭФФЕКТ: Воспроизведение звука запуска Windows 7
   useEffect(() => {
     if (isLoggedIn && !startupSoundPlayed) {
       const playStartup = () => {
-        // Ссылка на оригинальный звук "Приветствия" Windows 7
         const audio = new Audio('https://www.myinstants.com/media/sounds/windows-7-startup.mp3');
         audio.volume = volumes.system || 0.5;
         
         audio.play()
           .then(() => setStartupSoundPlayed(true))
           .catch(e => {
-            // Если браузер заблокировал автовоспроизведение, дожидаемся клика пользователя по странице
             console.log("Автовоспроизведение заблокировано браузером. Ожидание клика для звука запуска...");
             const onInteract = () => {
               audio.play();
@@ -1038,38 +996,25 @@ export default function App() {
     }
   }, [isLoggedIn, startupSoundPlayed, volumes.system]);
 
-  // ЭФФЕКТ: Воспроизведение звука при получении нового НЕПРОЧИТАННОГО сообщения
   useEffect(() => {
     if (!isLoggedIn || !user) return;
-    
-    // Собираем все сообщения в один плоский массив
     const allMessages = Object.values(messages).flat();
     if (allMessages.length === 0) return;
 
-    // Ищем самое свежее сообщение по времени
     const newestMsg = allMessages.reduce((prev, current) => (prev.timestamp > current.timestamp) ? prev : current);
 
-    // Если это действительно НОВОЕ сообщение (которое мы еще не обрабатывали)
     if (newestMsg && newestMsg.id !== lastProcessedMsgId) {
       setLastProcessedMsgId(newestMsg.id);
-
-      // Проверяем:
-      // 1. Сообщение не от нас (мы не отправитель)
-      // 2. Оно пришло только что (меньше 5 секунд назад), а не загружено из старой истории
       const isNew = (Date.now() - newestMsg.timestamp) < 5000;
-      
       if (isNew && newestMsg.senderId !== user.uid) {
-        // Воспроизводим системный звук уведомления
         playSystemSound('notify', currentSoundScheme, volumes.notify);
       }
     }
   }, [messages, lastProcessedMsgId, user, currentSoundScheme, volumes.notify, isLoggedIn]);
 
-  // --- Heartbeat & Status Logic (Система статусов) ---
   const getEffectiveStatus = (uid, uData) => {
-    if (uid === user?.uid) return myStatus; // Мой статус всегда актуален для меня
+    if (uid === user?.uid) return myStatus;
     if (!uData || !uData.lastSeen) return 'offline';
-    // Если пользователя не было более 2 минут (120000 мс), считаем его оффлайн
     if (Date.now() - uData.lastSeen > 120000) return 'offline';
     return uData.status || 'offline';
   };
@@ -1089,9 +1034,9 @@ export default function App() {
       }
     };
 
-    sendHeartbeat(); // Отправляем сразу
-    const interval = setInterval(sendHeartbeat, 30000); // Обновляем каждые 30 сек
-    const tickInterval = setInterval(() => setTimeTick(t => t + 1), 60000); // Обновляем интерфейс каждую минуту
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 30000);
+    const tickInterval = setInterval(() => setTimeTick(t => t + 1), 60000);
 
     return () => {
       clearInterval(interval);
@@ -1099,12 +1044,10 @@ export default function App() {
     };
   }, [user, myStatus]);
 
-  // 1. Авторизация Firebase (по Email/Паролю)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Подтягиваем имя из БД
         const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', currentUser.uid);
         const docSnap = await getDoc(userRef);
         if (docSnap.exists()) {
@@ -1129,16 +1072,12 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Загрузка данных из Firestore после входа
   useEffect(() => {
     if (!user || !isLoggedIn) return;
 
-    // Подписка на Чаты
     const chatsRef = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
     const unsubChats = onSnapshot(chatsRef, (snapshot) => {
       const fetchedChats = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      
-      // Фильтруем чаты: показываем группы ИЛИ личные чаты, в которых состоит текущий пользователь
       const visibleChats = fetchedChats.filter(c => c.isGroup || (c.participants && c.participants.includes(user.uid)));
       
       if (visibleChats.length === 0) {
@@ -1150,11 +1089,10 @@ export default function App() {
       }
     }, console.error);
 
-    // Подписка на Сообщения
     const msgsRef = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
     const unsubMsgs = onSnapshot(msgsRef, (snapshot) => {
       const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      msgs.sort((a, b) => a.timestamp - b.timestamp); // Сортировка по времени
+      msgs.sort((a, b) => a.timestamp - b.timestamp);
       
       const grouped = {};
       msgs.forEach(m => {
@@ -1165,7 +1103,6 @@ export default function App() {
       setMessages(grouped);
     }, console.error);
 
-    // Подписка на Пользователей (для аватарок и статусов в реальном времени)
     const usersRef = collection(db, 'artifacts', appId, 'public', 'data', 'users');
     const unsubUsers = onSnapshot(usersRef, (snapshot) => {
       const uData = {};
@@ -1182,7 +1119,6 @@ export default function App() {
     };
   }, [user, isLoggedIn]);
 
-  // Эффект: Помечаем сообщения как прочитанные, когда открываем чат или получаем новые
   useEffect(() => {
     if (!activeChatId || !user || chats.length === 0) return;
     const chatMsgs = messages[activeChatId] || [];
@@ -1192,8 +1128,6 @@ export default function App() {
     if (!activeChatObj) return;
 
     const myLastRead = activeChatObj.lastRead?.[user.uid] || 0;
-    
-    // Проверяем, есть ли новые сообщения от других людей
     const hasUnread = chatMsgs.some(m => m.timestamp > myLastRead && m.senderId !== user.uid);
     
     if (hasUnread) {
@@ -1206,7 +1140,6 @@ export default function App() {
     }
   }, [activeChatId, messages, chats, user]);
 
-  // Таймер записи голосового сообщения
   useEffect(() => {
     let interval;
     if (isRecording) {
@@ -1217,12 +1150,10 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isRecording]);
 
-  // Автоскролл
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeChatId]);
 
-  // Apply Theme CSS Variables
   useEffect(() => {
     const theme = THEMES[currentTheme];
     const root = document.documentElement;
@@ -1232,7 +1163,6 @@ export default function App() {
     root.style.setProperty('--aero-bg', theme.bg);
   }, [currentTheme]);
 
-  // CPU Emulation
   useEffect(() => {
     const interval = setInterval(() => {
       setCpuUsage(prev => Math.min(100, Math.max(5, prev + (Math.random() * 20 - 10))));
@@ -1250,11 +1180,9 @@ export default function App() {
           setAuthError(t('authErrorEmptyNick'));
           return;
         }
-        // Регистрация
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         currentUser = userCredential.user;
 
-        // Сохраняем профиль нового пользователя
         const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', currentUser.uid);
         await setDoc(userRef, {
           name: loginName.trim(),
@@ -1266,11 +1194,9 @@ export default function App() {
           isBanned: false
         }, { merge: true });
       } else {
-        // Вход
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         currentUser = userCredential.user;
         
-        // Получаем имя пользователя
         const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', currentUser.uid);
         const docSnap = await getDoc(userRef);
         if (docSnap.exists()) {
@@ -1307,7 +1233,7 @@ export default function App() {
     setLoginName('');
     setEmail('');
     setPassword('');
-    setStartupSoundPlayed(false); // Сбрасываем флаг звука запуска
+    setStartupSoundPlayed(false);
   };
 
   const handleSendMessage = async (e, customType = null, customData = null) => {
@@ -1316,7 +1242,6 @@ export default function App() {
 
     const msgsRef = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
 
-    // Если это редактирование сообщения
     if (editingMessageId) {
       const msgDocRef = doc(msgsRef, editingMessageId);
       await updateDoc(msgDocRef, {
@@ -1329,7 +1254,6 @@ export default function App() {
       return;
     }
     
-    // Сохраняем в Firebase
     await addDoc(msgsRef, {
       chatId: activeChatId,
       type: customType || 'text',
@@ -1356,7 +1280,6 @@ export default function App() {
     const msgRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', msgId);
     const msg = messages[activeChatId].find(m => m.id === msgId);
     
-    // Toggle reaction logic
     const hasReacted = msg.reactions && msg.reactions[emoji] && msg.reactions[emoji].includes(user.uid);
     
     await updateDoc(msgRef, {
@@ -1365,7 +1288,6 @@ export default function App() {
     setActiveMenuMsgId(null);
   };
   
-  // --- Drag and Drop Handler ---
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -1374,7 +1296,6 @@ export default function App() {
     }
   };
 
-  // --- Загрузка изображения (сжатие на лету без Storage) ---
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file || !activeChatId || !user) return;
@@ -1437,7 +1358,6 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  // --- Логика голосовых сообщений ---
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -1520,12 +1440,10 @@ export default function App() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // --- Звонки ---
   const handleStartCall = async (isVideo) => {
     if (!activeChatId || !user) return;
     const newCallId = `${activeChatId}_${Date.now()}`;
     
-    // Создаем документ звонка, чтобы определить хоста
     setIsCallVideo(isVideo);
     const callDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', newCallId);
     await setDoc(callDocRef, {
@@ -1554,7 +1472,6 @@ export default function App() {
     playSystemSound('notify', currentSoundScheme, volumes.notify);
   };
 
-  // --- PeerJS Logic ---
   useEffect(() => {
     if (!activeCallRoom || !user) return;
     
@@ -1566,7 +1483,6 @@ export default function App() {
     const startPeerCall = async () => {
       setCallStatus('connecting');
 
-      // 1. Получаем доступ к камере/микрофону
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: isCallVideo, audio: true });
         if (cancelled) {
@@ -1580,7 +1496,6 @@ export default function App() {
         return;
       }
 
-      // 2. Инициализируем PeerJS
       peer = new Peer(undefined, {
         host: '0.peerjs.com',
         port: 443,
@@ -1594,11 +1509,9 @@ export default function App() {
         const callDoc = await getDoc(callDocRef);
 
         if (callDoc.exists() && callDoc.data().hostId === user.uid) {
-          // Я - инициатор звонка (Хост)
           await updateDoc(callDocRef, { hostPeerId: myPeerId });
-          setCallStatus('waiting'); // Ждем собеседника
+          setCallStatus('waiting');
         } else {
-          // Я - присоединившийся (Гость)
           unsubscribe = onSnapshot(callDocRef, (snap) => {
             if (cancelled) return;
             const data = snap.data();
@@ -1613,16 +1526,14 @@ export default function App() {
         }
       });
 
-      // Обработка ошибок PeerJS
       peer.on('error', (err) => {
         console.error("PeerJS Error:", err);
         setUploadError(`Ошибка соединения: ${err.type}`);
       });
 
-      // 3. Обработка входящего звонка (для Хоста)
       peer.on('call', (call) => {
         if (cancelled) return;
-        call.answer(localStream); // Отвечаем своим потоком
+        call.answer(localStream);
         setCallStatus('connected');
         call.on('stream', (remoteStream) => {
           if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
@@ -1665,7 +1576,6 @@ export default function App() {
     }
   };
 
-  // --- Личные сообщения ---
   const handleStartDM = async (targetUserId) => {
     if (!user || targetUserId === user.uid) return;
     
@@ -1687,7 +1597,6 @@ export default function App() {
     setSearchQuery('');
   };
 
-  // --- Создание группы ---
   const handleCreateGroup = async () => {
     if (!newGroupName.trim() || selectedUsersForGroup.length === 0 || !user) return;
     
@@ -1707,7 +1616,6 @@ export default function App() {
     setActiveChatId(newChatRef.id);
   };
 
-  // --- Закрепление сообщения ---
   const handlePinMessage = async (msgId) => {
     if (!activeChatId) return;
     const chatRef = doc(db, 'artifacts', appId, 'public', 'data', 'chats', activeChatId);
@@ -1715,7 +1623,6 @@ export default function App() {
     await setDoc(chatRef, { pinnedMessageId: isPinned ? null : msgId }, { merge: true });
   };
 
-  // --- Удаление сообщения ---
   const requestDeleteMessage = (msgId) => {
     const msgRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', msgId);
     updateDoc(msgRef, { deletedAt: Date.now() });
@@ -1746,11 +1653,9 @@ export default function App() {
     setShowRecycleBin(false);
   };
 
-  // --- Индикатор печати ---
   const handleTyping = async () => {
     if (!activeChatId || !user) return;
     const now = Date.now();
-    // Обновляем статус не чаще чем раз в 2 секунды
     if (now - lastTypingRef.current > 2000) {
       lastTypingRef.current = now;
       const chatRef = doc(db, 'artifacts', appId, 'public', 'data', 'chats', activeChatId);
@@ -1760,14 +1665,12 @@ export default function App() {
     }
   };
 
-  // --- Смена обоев ---
   const handleSetWallpaper = (url) => {
     setChatWallpaper(url);
     localStorage.setItem('aero_wallpaper', url);
     setShowWallpaperMenu(false);
   };
 
-  // --- Вставка эмодзи ---
   const handleAddEmoji = (emoji) => {
     setInputText(prev => prev + emoji);
     setShowEmojiPicker(false);
@@ -1788,7 +1691,6 @@ export default function App() {
   const activeChat = chats.find(c => c.id === activeChatId);
   const myAvatar = myAvatarUrl || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.uid || 'Me'}`;
 
-  // Вычисляем, кто печатает
   const typingUsers = activeChat?.typing ? Object.entries(activeChat.typing)
     .filter(([uid, ts]) => uid !== user?.uid && Date.now() - ts < 3000)
     .map(([uid]) => usersData[uid]?.name || t('someone')) : [];
@@ -1831,7 +1733,7 @@ export default function App() {
       
       <div className="h-screen w-full flex items-center justify-center p-4 sm:p-8 relative">
         {!isLoggedIn ? (
-          // --- LOGIN SCREEN (ORIGINAL) ---
+          // --- LOGIN SCREEN ---
           <div className="aero-window w-full max-w-sm shadow-2xl animate-gentle-fade-in-up z-10">
             <div className="aero-titlebar">
               <span className="aero-title-text flex items-center gap-2">
@@ -2464,18 +2366,46 @@ export default function App() {
 
             {/* --- GADGETS SIDEBAR --- */}
             {showGadgets && (
-              <div className="hidden lg:flex flex-col gap-4 absolute right-4 top-8 bottom-8 w-56 z-0" style={{ paddingLeft: '20px' }}>
+              <div className="absolute top-8 right-0 bottom-0 w-60 gadget-sidebar p-4 flex flex-col gap-4 z-20 animate-gentle-fade-in-up overflow-y-auto">
                 {/* Clock Gadget */}
-                <div className="bg-white/20 border border-white/40 p-4 rounded-xl shadow-lg backdrop-blur-md flex flex-col items-center text-slate-800">
-                  <Clock size={40} className="mb-2 opacity-80"/>
-                  <div className="text-2xl font-bold tracking-widest">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                <div className="gadget-item p-3 flex flex-col items-center justify-center aspect-square">
+                  <Clock size={48} className="text-slate-800 drop-shadow-md mb-2" />
+                  <div className="text-xl font-bold text-slate-800" style={{textShadow: '0 1px 0 rgba(255,255,255,0.8)'}}>
+                    {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </div>
                 </div>
+                
+                {/* CPU Gadget */}
+                <div className="gadget-item p-3">
+                  <div className="flex items-center gap-2 mb-2 text-slate-800 font-bold text-xs">
+                    <Cpu size={16} /> CPU Usage
+                  </div>
+                  <div className="w-full bg-slate-300/50 rounded-full h-3 border border-slate-400/50 overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-green-400 to-red-500 transition-all duration-500" style={{width: `${cpuUsage}%`}}></div>
+                  </div>
+                  <div className="text-right text-xs font-mono mt-1">{Math.round(cpuUsage)}%</div>
+                </div>
+                
+                {/* Sticky Notes Gadget */}
+                <div className="gadget-item p-0 overflow-hidden bg-[#fff9c4] border-[#fbc02d]">
+                  <div className="bg-[#fbc02d]/20 p-1 border-b border-[#fbc02d]/30 flex justify-between items-center px-2">
+                    <span className="text-[10px] font-bold text-[#5d4037]">Notes</span>
+                    <Plus size={10} className="text-[#5d4037] cursor-pointer"/>
+                  </div>
+                  <textarea 
+                    className="w-full h-32 bg-transparent resize-none p-2 text-xs text-[#5d4037] focus:outline-none font-handwriting"
+                    value={gadgetNotes}
+                    onChange={(e) => { setGadgetNotes(e.target.value); localStorage.setItem('aero_notes', e.target.value); }}
+                    placeholder="Type a note..."
+                  />
+                </div>
+
                 {/* Music Player Gadget */}
-                <div className="bg-white/20 border border-white/40 p-4 rounded-xl shadow-lg backdrop-blur-md flex flex-col items-center">
-                  <div className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1"><Music size={12}/> Aero Vibes FM</div>
-                  <audio controls loop className="w-full h-8 opacity-70 hover:opacity-100 transition-opacity">
-                     <source src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Tours/Enthusiast/Tours_-_01_-_Enthusiast.mp3" type="audio/mpeg" />
-                  </audio>
+                <div className="gadget-item p-3 flex flex-col items-center justify-center">
+                  <div className="flex items-center gap-2 mb-2 text-slate-800 font-bold text-xs">
+                    <Music size={16} className="text-blue-600" /> Aero Vibes FM
+                  </div>
+                  <AeroAudioPlayer src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Tours/Enthusiast/Tours_-_01_-_Enthusiast.mp3" />
                 </div>
               </div>
             )}
@@ -2589,8 +2519,6 @@ export default function App() {
                 </div>
               </div>
             )}
-
-            {/* --- DRAGGABLE WINDOWS --- */}
 
             {/* ADMIN PANEL */}
             {showAdminPanel && (
