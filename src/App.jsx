@@ -2342,9 +2342,13 @@ export default function App() {
                                   <span className="text-left leading-tight">{msg.senderName} <br/><span className="text-slate-500 font-normal">{msg.text}</span></span>
                                 </div>
                                 <button onClick={() => {
-                                  setActiveCallRoom(msg.callId || msg.chatId);
-                                  setActiveCallChatId(msg.chatId);
-                                  setIsCallVideo(msg.isVideo);
+                                  if (msg.callId) {
+                                    setActiveCallRoom(msg.callId);
+                                    setActiveCallChatId(msg.chatId);
+                                    setIsCallVideo(msg.isVideo);
+                                  } else {
+                                    alert('Не удалось присоединиться к звонку: ID звонка не найден. Возможно, это старое сообщение.');
+                                  }
                                 }} className="aero-btn px-4 py-3 md:py-2 text-base md:text-sm flex items-center justify-center gap-2 w-full mt-2 font-bold rounded-lg shadow-md">
                                   {msg.isVideo ? <Video size={18}/> : <Phone size={18}/>}
                                   {t('joinCall')}
@@ -2688,7 +2692,7 @@ export default function App() {
                       {t('conference')}: {chats.find(c => c.id === activeCallChatId)?.name || t('personalCall')}
                     </span>
                     <div className="ml-auto flex gap-1">
-                      <div className="win-control win-close" onClick={() => window.location.reload()} title="Force Close"><X size={12} color="white" /></div>
+                      <div className="win-control win-close" onClick={() => setActiveCallRoom(null)} title={t('hangup')}><X size={12} color="white" /></div>
                     </div>
                   </div>
                   
