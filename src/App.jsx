@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Settings, Send, Paperclip, Smile, X, Maximize, Minus, Users, Phone, Video, Mic, Square, Play, Pause, Edit2, Trash2, Reply, Plus, Image as ImageIcon, MoreVertical, Check, ArrowLeft, Globe, StickyNote, FileText, Music, Search, Palette, Volume2, ExternalLink, RefreshCw, Cpu, Clock, Award, Volume1, VolumeX, Trash, Shield, Ban, Brush, Heart, ThumbsUp, Laugh } from 'lucide-react';
-import Peer from 'peerjs';
 
 // --- Firebase Imports ---
 import { initializeApp } from 'firebase/app';
@@ -626,9 +625,12 @@ const playSystemSound = (type = 'notify', scheme = 'xp', volume = 0.5) => {
 
     // Используем звуки Skype, как просил пользователь!
     if (type === 'notify') {
-      const audio = new Audio('https://www.myinstants.com/media/sounds/skype-message.mp3');
-      audio.volume = vol;
-      audio.play().catch(() => {});
+      const audioEl = document.getElementById('audio-notify');
+      if (audioEl) {
+         audioEl.volume = vol;
+         audioEl.currentTime = 0;
+         audioEl.play().catch(e => console.log("Sound block:", e));
+      }
       return;
     }
 
@@ -1038,27 +1040,32 @@ export default function App() {
 
     if (hasChanges) {
       const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-      window.history.pushState({}, '', newUrl);
+      try {
+        window.history.replaceState({}, '', newUrl);
+      } catch (err) {
+        console.warn("History API is restricted in this environment.", err);
+      }
     }
   }, [activeChatId, viewProfileId, isLoggedIn]);
 
   useEffect(() => {
     if (isLoggedIn && !startupSoundPlayed) {
       const playStartup = () => {
-        const audio = new Audio('https://www.myinstants.com/media/sounds/windows-7-startup.mp3');
-        audio.volume = volumes.system || 0.5;
-        
-        audio.play()
-          .then(() => setStartupSoundPlayed(true))
-          .catch(e => {
-            console.log("Автовоспроизведение заблокировано браузером. Ожидание клика для звука запуска...");
-            const onInteract = () => {
-              audio.play();
-              setStartupSoundPlayed(true);
-              window.removeEventListener('click', onInteract);
-            };
-            window.addEventListener('click', onInteract);
-          });
+        const audio = document.getElementById('audio-startup');
+        if (audio) {
+            audio.volume = volumes.system || 0.5;
+            audio.play()
+              .then(() => setStartupSoundPlayed(true))
+              .catch(e => {
+                console.log("Автовоспроизведение заблокировано браузером. Ожидание клика для звука запуска...");
+                const onInteract = () => {
+                  audio.play().catch(console.error);
+                  setStartupSoundPlayed(true);
+                  window.removeEventListener('click', onInteract);
+                };
+                window.addEventListener('click', onInteract);
+              });
+        }
       };
       playStartup();
     }
@@ -1540,82 +1547,173 @@ export default function App() {
     playSystemSound('notify', currentSoundScheme, volumes.notify);
   };
 
+  // --- NATIVE WEBRTC SIGNALING (Replaces PeerJS) ---
   useEffect(() => {
     if (!activeCallRoom || !user) return;
     
-    let peer = null;
+    let pc = null;
     let localStream = null;
-    let unsubscribe = null;
+    let unsubs = [];
     let cancelled = false;
 
-    const startPeerCall = async () => {
+    const startCall = async () => {
       setCallStatus('connecting');
 
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: isCallVideo, audio: true });
-        if (cancelled) {
-          localStream.getTracks().forEach(track => track.stop());
-          return;
-        }
+        if (cancelled) return;
         if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
       } catch (err) {
-        console.error("Ошибка доступа к медиа:", err);
+        console.error("Media access error:", err);
         setUploadError(t('uploadErrorMic'));
+        setCallStatus('error');
         return;
       }
 
-      peer = new Peer(undefined, {
-        host: '0.peerjs.com',
-        port: 443,
-        secure: true,
-        debug: 2
+      // 1. Initialize native RTCPeerConnection with STUN servers
+      const servers = {
+        iceServers: [
+          { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ],
+      };
+      
+      pc = new RTCPeerConnection(servers);
+
+      // 2. Add local stream to connection
+      localStream.getTracks().forEach((track) => {
+        pc.addTrack(track, localStream);
       });
 
-      peer.on('open', async (myPeerId) => {
-        if (cancelled) return;
-        const callDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', activeCallRoom);
-        const callDoc = await getDoc(callDocRef);
+      // 3. Listen for remote stream
+      pc.ontrack = (event) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        }
+      };
 
-        if (callDoc.exists() && callDoc.data().hostId === user.uid) {
-          await updateDoc(callDocRef, { hostPeerId: myPeerId });
-          setCallStatus('waiting');
-        } else {
-          unsubscribe = onSnapshot(callDocRef, (snap) => {
-            if (cancelled) return;
-            const data = snap.data();
-            if (data && data.hostPeerId) {
-              const call = peer.call(data.hostPeerId, localStream);
-              setCallStatus('connected');
-              call.on('stream', (remoteStream) => {
-                if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
-              });
+      pc.onconnectionstatechange = () => {
+         if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+             setCallStatus('error');
+         } else if (pc.connectionState === 'connected') {
+             setCallStatus('connected');
+         }
+      };
+
+      // 4. Get signaling database references
+      const callDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', activeCallRoom);
+      const callerCandidatesCollection = collection(callDocRef, 'callerCandidates');
+      const calleeCandidatesCollection = collection(callDocRef, 'calleeCandidates');
+
+      const callDocSnap = await getDoc(callDocRef);
+      const callData = callDocSnap.data();
+
+      if (!callData) {
+        setCallStatus('error');
+        return;
+      }
+
+      const isHost = callData.hostId === user.uid;
+
+      if (isHost) {
+        // --- HOST (CALLER) LOGIC ---
+        
+        // Listen and push ICE candidates
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            addDoc(callerCandidatesCollection, event.candidate.toJSON());
+          }
+        };
+
+        // Create Offer
+        const offerDescription = await pc.createOffer();
+        await pc.setLocalDescription(offerDescription);
+
+        const offer = {
+          sdp: offerDescription.sdp,
+          type: offerDescription.type,
+        };
+
+        await updateDoc(callDocRef, { offer });
+        setCallStatus('waiting');
+
+        // Listen for Guest's Answer
+        unsubs.push(onSnapshot(callDocRef, (snapshot) => {
+          const data = snapshot.data();
+          if (!pc.currentRemoteDescription && data?.answer) {
+            const answerDescription = new RTCSessionDescription(data.answer);
+            pc.setRemoteDescription(answerDescription);
+            setCallStatus('connected');
+          }
+        }));
+
+        // Listen for remote ICE candidates
+        unsubs.push(onSnapshot(calleeCandidatesCollection, (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const candidate = new RTCIceCandidate(change.doc.data());
+              pc.addIceCandidate(candidate);
             }
           });
+        }));
+
+      } else {
+        // --- GUEST (CALLEE) LOGIC ---
+        
+        // Listen and push ICE candidates
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            addDoc(calleeCandidatesCollection, event.candidate.toJSON());
+          }
+        };
+
+        const initGuest = async (offerData) => {
+          const offerDescription = new RTCSessionDescription(offerData);
+          await pc.setRemoteDescription(offerDescription);
+
+          const answerDescription = await pc.createAnswer();
+          await pc.setLocalDescription(answerDescription);
+
+          const answer = {
+            type: answerDescription.type,
+            sdp: answerDescription.sdp,
+          };
+
+          await updateDoc(callDocRef, { answer });
+          setCallStatus('connected');
+
+          // Listen for remote ICE candidates
+          unsubs.push(onSnapshot(callerCandidatesCollection, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+              if (change.type === 'added') {
+                const candidate = new RTCIceCandidate(change.doc.data());
+                pc.addIceCandidate(candidate);
+              }
+            });
+          }));
+        };
+
+        // Check if offer already exists or wait for it
+        if (callData.offer) {
+           initGuest(callData.offer);
+        } else {
+           unsubs.push(onSnapshot(callDocRef, (snapshot) => {
+              const data = snapshot.data();
+              if (data?.offer && !pc.currentRemoteDescription) {
+                 initGuest(data.offer);
+              }
+           }));
         }
-      });
-
-      peer.on('error', (err) => {
-        console.error("PeerJS Error:", err);
-        setUploadError(`Ошибка соединения: ${err.type}`);
-      });
-
-      peer.on('call', (call) => {
-        if (cancelled) return;
-        call.answer(localStream);
-        setCallStatus('connected');
-        call.on('stream', (remoteStream) => {
-          if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
-        });
-      });
+      }
     };
 
-    startPeerCall();
+    startCall();
 
     return () => {
       cancelled = true;
-      if (peer) peer.destroy();
+      unsubs.forEach(unsub => unsub());
+      if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(track => track.stop());
-      if (unsubscribe) unsubscribe();
       setCallStatus('idle');
     };
   }, [activeCallRoom, user]);
@@ -1800,6 +1898,11 @@ export default function App() {
       <style dangerouslySetInnerHTML={{ __html: aeroStyles }} />
       
       <div className="h-[100dvh] w-full flex items-center justify-center relative bg-transparent overflow-hidden">
+        
+        {/* Hidden Audio Elements for System Sounds */}
+        <audio id="audio-notify" src="https://www.myinstants.com/media/sounds/skype-message.mp3" preload="auto" />
+        <audio id="audio-startup" src="https://www.myinstants.com/media/sounds/windows-7-startup.mp3" preload="auto" />
+        
         {!isLoggedIn ? (
           // --- LOGIN SCREEN ---
           <div className="aero-window relative w-full max-w-md mx-4 md:mx-auto shadow-2xl animate-gentle-fade-in-up z-10 flex flex-col max-h-[90vh]">
@@ -2515,7 +2618,10 @@ export default function App() {
                           <Phone size={40} className="text-blue-400 animate-bounce" />
                         </div>
                         <div className="text-white font-bold text-2xl mb-2">{chats.find(c => c.id === activeCallChatId)?.name || t('unknown')}</div>
-                        <div className="text-blue-200 text-lg opacity-80">{callStatus === 'waiting' ? 'Ожидание собеседника...' : 'Соединение...'}</div>
+                        <div className="text-blue-200 text-lg opacity-80">
+                          {callStatus === 'waiting' ? 'Ожидание собеседника...' : 
+                           callStatus === 'error' ? 'Ошибка соединения' : 'Соединение...'}
+                        </div>
                       </div>
                     )}
                   </div>
