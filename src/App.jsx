@@ -322,7 +322,7 @@ const aeroStyles = `
       inset 0 0 20px rgba(255,255,255,0.3),
       0 12px 40px rgba(0,0,0,0.3);
     overflow: hidden;
-    position: relative;
+    /* Убрано position: relative, чтобы окна DraggableWindow не занимали место в flex-контейнере и не сжимали чат */
   }
 
   .aero-titlebar {
@@ -795,7 +795,7 @@ const DraggableWindow = ({ title, icon: Icon, onClose, children, initialPos = { 
   return (
     <div 
       className="absolute aero-window shadow-2xl flex flex-col animate-gentle-fade-in-up border border-white/80 draggable-modal"
-      style={{ '--drag-x': `${pos.x}px`, '--drag-y': `${pos.y}px`, '--drag-w': typeof width === 'number' ? `${width}px` : width, '--drag-h': height, zIndex }}
+      style={{ position: 'absolute', '--drag-x': `${pos.x}px`, '--drag-y': `${pos.y}px`, '--drag-w': typeof width === 'number' ? `${width}px` : width, '--drag-h': height, zIndex }}
     >
       <div className="aero-titlebar cursor-move" onMouseDown={onMouseDown}>
         <span className="aero-title-text flex items-center gap-2">
@@ -1799,7 +1799,7 @@ export default function App() {
       <div className="h-[100dvh] w-full flex items-center justify-center relative bg-transparent overflow-hidden">
         {!isLoggedIn ? (
           // --- LOGIN SCREEN ---
-          <div className="aero-window w-full max-w-md mx-4 md:mx-auto shadow-2xl animate-gentle-fade-in-up z-10 flex flex-col max-h-[90vh]">
+          <div className="aero-window relative w-full max-w-md mx-4 md:mx-auto shadow-2xl animate-gentle-fade-in-up z-10 flex flex-col max-h-[90vh]">
             <div className="aero-titlebar">
               <span className="aero-title-text flex items-center gap-2 flex-1 justify-center md:justify-start">
                 <Smile size={16} className="text-blue-600" /> {t('loginTitle')}
@@ -2484,7 +2484,7 @@ export default function App() {
             {/* CALL MODAL */}
             {activeCallRoom && (
               <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-0 md:p-6">
-                <div className="aero-window w-full h-full md:max-w-4xl md:h-[80vh] flex flex-col shadow-2xl animate-gentle-fade-in-up md:border border-white/80 overflow-hidden rounded-none md:rounded-xl">
+                <div className="aero-window relative w-full h-full md:max-w-4xl md:h-[80vh] flex flex-col shadow-2xl animate-gentle-fade-in-up md:border border-white/80 overflow-hidden rounded-none md:rounded-xl">
                   <div className="aero-titlebar cursor-move hidden md:flex">
                     <span className="aero-title-text flex items-center gap-2">
                       <Phone size={14} className="text-blue-700" />
@@ -2528,7 +2528,7 @@ export default function App() {
             {/* CREATE GROUP MODAL */}
             {showGroupModal && (
               <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-0 md:p-4">
-                <div className="aero-window w-full md:max-w-md h-full md:h-auto shadow-2xl animate-gentle-fade-in-up border-0 md:border border-white/80 flex flex-col draggable-modal">
+                <div className="aero-window relative w-full md:max-w-md h-full md:h-auto shadow-2xl animate-gentle-fade-in-up border-0 md:border border-white/80 flex flex-col draggable-modal">
                   <div className="aero-titlebar shrink-0">
                     <span className="aero-title-text flex items-center gap-2"><Users size={16} className="text-blue-600"/> {t('createGroup')}</span>
                     <div className="ml-auto flex gap-1">
@@ -2569,7 +2569,7 @@ export default function App() {
             {/* PARTICIPANTS MODAL */}
             {showParticipantsModal && (
               <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-0 md:p-4">
-                <div className="aero-window w-full md:max-w-md h-full md:h-auto shadow-2xl animate-gentle-fade-in-up border-0 md:border border-white/80 flex flex-col draggable-modal">
+                <div className="aero-window relative w-full md:max-w-md h-full md:h-auto shadow-2xl animate-gentle-fade-in-up border-0 md:border border-white/80 flex flex-col draggable-modal">
                   <div className="aero-titlebar shrink-0">
                     <span className="aero-title-text flex items-center gap-2"><Users size={16} className="text-blue-600"/> {t('participants')}</span>
                     <div className="ml-auto flex gap-1">
