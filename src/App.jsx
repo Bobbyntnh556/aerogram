@@ -322,7 +322,6 @@ const aeroStyles = `
       inset 0 0 20px rgba(255,255,255,0.3),
       0 12px 40px rgba(0,0,0,0.3);
     overflow: hidden;
-    /* Убрано position: relative, чтобы окна DraggableWindow не занимали место в flex-контейнере и не сжимали чат */
   }
 
   .aero-titlebar {
@@ -623,6 +622,17 @@ const initialChatsSeed = [
 // --- Web Audio API for Win7 System Sounds ---
 const playSystemSound = (type = 'notify', scheme = 'xp', volume = 0.5) => {
   try {
+    const vol = Math.max(0, Math.min(1, volume));
+
+    // Используем звуки Skype, как просил пользователь!
+    if (type === 'notify') {
+      const audio = new Audio('https://www.myinstants.com/media/sounds/skype-message.mp3');
+      audio.volume = vol;
+      audio.play().catch(() => {});
+      return;
+    }
+
+    // Оставляем генерацию звуков для входа и корзины
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
     const ctx = new AudioContext();
@@ -632,25 +642,9 @@ const playSystemSound = (type = 'notify', scheme = 'xp', volume = 0.5) => {
     osc.connect(gainNode);
     gainNode.connect(ctx.destination);
     
-    const vol = Math.max(0, Math.min(1, volume));
-    
     const baseFreq = scheme === 'xp' ? 880 : (scheme === 'vista' ? 600 : 1000);
-    const typeWave = scheme === 'xp' ? 'sine' : (scheme === 'vista' ? 'triangle' : 'sine');
 
-    if (type === 'notify') {
-      osc.type = typeWave;
-      osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
-      if (scheme === 'win7') {
-         osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, ctx.currentTime + 0.1);
-      } else {
-         osc.frequency.setValueAtTime(baseFreq * 1.25, ctx.currentTime + 0.1);
-      }
-      gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3 * vol, ctx.currentTime + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.5);
-    } else if (type === 'login') {
+    if (type === 'login') {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(baseFreq / 2, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(baseFreq, ctx.currentTime + 0.4);
@@ -690,7 +684,7 @@ const formatAudioTime = (seconds) => {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
-const AeroAudioPlayer = ({ src }) => {
+const AeroAudioPlayer = ({ src, isLiveStream = false }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -701,7 +695,7 @@ const AeroAudioPlayer = ({ src }) => {
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
+      audioRef.current.play().catch(e => console.log(e));
     }
     setIsPlaying(!isPlaying);
   };
@@ -715,6 +709,7 @@ const AeroAudioPlayer = ({ src }) => {
   };
 
   const handleSeek = (e) => {
+    if (isLiveStream) return;
     const time = Number(e.target.value);
     audioRef.current.currentTime = time;
     setCurrentTime(time);
@@ -735,21 +730,29 @@ const AeroAudioPlayer = ({ src }) => {
         {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
       </button>
       
-      <div className="flex-1 flex items-center px-1">
-        <input 
-          type="range" 
-          min="0" 
-          max={duration || 100} 
-          step="0.01"
-          value={currentTime} 
-          onChange={handleSeek} 
-          className="w-full aero-slider" 
-        />
-      </div>
+      {isLiveStream ? (
+        <div className="flex-1 flex items-center justify-center px-1">
+          <span className="text-[10px] font-bold text-red-600 animate-pulse tracking-widest drop-shadow-sm" style={{textShadow: '0 1px 0 rgba(255,255,255,0.8)'}}>● LIVE</span>
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center px-1">
+          <input 
+            type="range" 
+            min="0" 
+            max={duration || 100} 
+            step="0.01"
+            value={currentTime} 
+            onChange={handleSeek} 
+            className="w-full aero-slider" 
+          />
+        </div>
+      )}
       
-      <span className="text-[10px] text-slate-700 font-bold w-7 text-right shrink-0 select-none" style={{ textShadow: '0 1px 0 rgba(255,255,255,0.8)' }}>
-        {formatAudioTime(currentTime)}
-      </span>
+      {!isLiveStream && (
+        <span className="text-[10px] text-slate-700 font-bold w-7 text-right shrink-0 select-none" style={{ textShadow: '0 1px 0 rgba(255,255,255,0.8)' }}>
+          {formatAudioTime(currentTime)}
+        </span>
+      )}
       
       <audio 
         ref={audioRef} 
@@ -2476,7 +2479,8 @@ export default function App() {
                   <div className="flex items-center gap-2 mb-3 text-slate-800 font-bold text-sm">
                     <Music size={18} className="text-blue-600" /> Aero Vibes FM
                   </div>
-                  <AeroAudioPlayer src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Tours/Enthusiast/Tours_-_01_-_Enthusiast.mp3" />
+                  {/* Заменен URL и включен режим Live-радио для бесконечного потока */}
+                  <AeroAudioPlayer src="https://stream.laut.fm/synthwave" isLiveStream={true} />
                 </div>
               </div>
             )}
