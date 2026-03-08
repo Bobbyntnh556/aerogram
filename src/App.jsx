@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Settings, Send, Paperclip, Smile, X, Maximize, Minus, Users, Phone, Video, Mic, Square, Play, Pause, Edit2, Trash2, Reply, Plus, Image as ImageIcon, MoreVertical, Check, ArrowLeft, Globe, StickyNote, FileText, Music, Search, Palette, Volume2, ExternalLink, RefreshCw, Cpu, Clock, Award, Volume1, VolumeX, Trash, Shield, Ban, Brush, Heart, ThumbsUp, Laugh } from 'lucide-react';
+import { User, Settings, Send, Paperclip, Smile, X, Maximize, Minus, Users, Phone, Video, Mic, Square, Play, Pause, Edit2, Trash2, Reply, Plus, Image as ImageIcon, MoreVertical, Check, ArrowLeft, Globe, StickyNote, FileText, Music, Search, Palette, Volume2, ExternalLink, RefreshCw, Cpu, Clock, Award, Volume1, VolumeX, Trash, Shield, Ban, Brush, Heart, ThumbsUp, Laugh, AlertTriangle } from 'lucide-react';
 
 // --- Firebase Imports ---
 import { initializeApp } from 'firebase/app';
@@ -614,8 +614,9 @@ const aeroStyles = `
 `;
 
 // --- Initial Seed Data ---
+// Added isPublic: true so ONLY the public chat is seen by everyone by default
 const initialChatsSeed = [
-  { id: '1', name: 'Общий чат (Public)', avatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=Aero', isGroup: true, order: 1 }
+  { id: '1', name: 'Общий чат (Public)', avatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=Aero', isGroup: true, isPublic: true, order: 1 }
 ];
 
 // --- Web Audio API for Win7 System Sounds ---
@@ -966,6 +967,7 @@ export default function App() {
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const lastTypingRef = useRef(0);
+  const isScrolledUpRef = useRef(false);
 
   const [chatWallpaper, setChatWallpaper] = useState(localStorage.getItem('aero_wallpaper') || '');
   const [showWallpaperMenu, setShowWallpaperMenu] = useState(false);
@@ -1000,6 +1002,8 @@ export default function App() {
 
   const [startupSoundPlayed, setStartupSoundPlayed] = useState(false);
   const [lastProcessedMsgId, setLastProcessedMsgId] = useState(null);
+  
+  const isAdmin = user?.email === ADMIN_EMAIL;
 
   useEffect(() => {
     const syncFromUrl = () => {
@@ -1153,7 +1157,9 @@ export default function App() {
     const chatsRef = collection(db, 'artifacts', appId, 'public', 'data', 'chats');
     const unsubChats = onSnapshot(chatsRef, (snapshot) => {
       const fetchedChats = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      const visibleChats = fetchedChats.filter(c => c.isGroup || (c.participants && c.participants.includes(user.uid)));
+      // ФИЛЬТРАЦИЯ ПРИВАТНОСТИ ПРИ СОЗДАНИИ ЧАТОВ
+      // Отображаем только публичные чаты (например "Общий чат") ИЛИ те, где пользователь есть в participants.
+      const visibleChats = fetchedChats.filter(c => c.isPublic || c.id === '1' || (c.participants && c.participants.includes(user.uid)));
       
       if (visibleChats.length === 0) {
         initialChatsSeed.forEach(async (c) => {
@@ -1225,9 +1231,25 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isRecording]);
 
+  // Умный скролл: если мы листаем вверх, новые сообщения не дергают экран
+  const handleChatScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    // Если пользователь отскроллил вверх больше чем на 150px от конца
+    isScrolledUpRef.current = scrollHeight - scrollTop - clientHeight > 150;
+  };
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, activeChatId]);
+    if (!isScrolledUpRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    isScrolledUpRef.current = false;
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+    }, 50);
+  }, [activeChatId]);
 
   useEffect(() => {
     const theme = THEMES[currentTheme];
@@ -1348,6 +1370,12 @@ export default function App() {
 
     setInputText('');
     setReplyingTo(null);
+    
+    // Принудительный скролл вниз после собственной отправки
+    setTimeout(() => {
+       isScrolledUpRef.current = false;
+       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   };
   
   const handleReaction = async (msgId, emoji) => {
@@ -1770,6 +1798,7 @@ export default function App() {
     await setDoc(newChatRef, {
       name: newGroupName.trim(),
       isGroup: true,
+      // Группа приватная, поэтому isPublic не добавляем
       participants: [user.uid, ...selectedUsersForGroup],
       avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${newChatRef.id}`,
       timestamp: Date.now(),
@@ -1819,6 +1848,17 @@ export default function App() {
     setShowRecycleBin(false);
   };
 
+  const handleDeleteChat = async (chatId) => {
+    if (chatId === '1') {
+       alert('Системный чат удалить нельзя!');
+       return;
+    }
+    if (window.confirm('Вы уверены, что хотите полностью удалить этот чат для всех пользователей? Это действие нельзя отменить.')) {
+       await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'chats', chatId));
+       setActiveChatId(null);
+    }
+  };
+
   const handleTyping = async () => {
     if (!activeChatId || !user) return;
     const now = Date.now();
@@ -1852,6 +1892,29 @@ export default function App() {
         await updateDoc(userRef, { isBanned: true, banReason: reason });
       }
     }
+  };
+
+  const handleDeleteUser = async (uid) => {
+    if (window.confirm('ВНИМАНИЕ! Вы точно хотите удалить этого пользователя из базы? Действие необратимо.')) {
+       await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', uid));
+    }
+  };
+
+  const sendSystemMessage = async () => {
+    const text = prompt('Введите текст системного объявления для Общего чата:');
+    if (!text) return;
+    
+    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
+      chatId: '1', // Общий чат
+      type: 'system',
+      text: text,
+      senderId: 'admin',
+      senderName: 'СИСТЕМА',
+      timestamp: Date.now(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      reactions: {}
+    });
+    alert('Объявление успешно отправлено!');
   };
 
   const activeChat = chats.find(c => c.id === activeChatId);
@@ -2029,7 +2092,7 @@ export default function App() {
                 </div>
 
                 {/* Admin Button */}
-                {user?.email === ADMIN_EMAIL && (
+                {isAdmin && (
                    <div className="px-3 pt-3">
                      <button onClick={() => setShowAdminPanel(true)} className="w-full aero-btn py-2 md:py-1 text-sm md:text-xs flex items-center justify-center gap-1 bg-red-100 border-red-300 text-red-800 font-bold rounded-md">
                        <Shield size={14} /> Админ Панель
@@ -2090,7 +2153,8 @@ export default function App() {
                       let lastMsg = t('noMessages');
                       if (chatMsgs.length > 0) {
                         const lastObj = chatMsgs[chatMsgs.length - 1];
-                        if (lastObj.type === 'image') lastMsg = `📷 ${t('image')}`;
+                        if (lastObj.type === 'system') lastMsg = `📢 Системное сообщение`;
+                        else if (lastObj.type === 'image') lastMsg = `📷 ${t('image')}`;
                         else if (lastObj.type === 'call') lastMsg = `📞 ${t('call')}`;
                         else if (lastObj.type === 'audio') lastMsg = `🎤 ${t('audio')}`;
                         else lastMsg = lastObj.text;
@@ -2195,6 +2259,11 @@ export default function App() {
                         </div>
                       </div>
                       <div className="flex gap-1 md:gap-2 shrink-0">
+                        {isAdmin && activeChatId !== '1' && (
+                          <button onClick={() => handleDeleteChat(activeChatId)} className="p-2 md:p-1.5 hover:bg-red-100 rounded-md border border-transparent hover:border-red-300 transition-all text-red-600 shadow-sm" title="Удалить чат (Админ)">
+                            <Trash2 size={20} className="md:w-[18px] md:h-[18px]"/>
+                          </button>
+                        )}
                         <div className="relative">
                           <button onClick={() => setShowWallpaperMenu(!showWallpaperMenu)} className="p-2 md:p-1.5 hover:bg-white/50 rounded-md border border-transparent hover:border-white/80 transition-all text-slate-600 shadow-sm" title={t('wallpapers')}><ImageIcon size={20} className="md:w-[18px] md:h-[18px]"/></button>
                           {showWallpaperMenu && (
@@ -2235,8 +2304,25 @@ export default function App() {
                     )}
 
                     {/* Messages Feed */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-5 relative" onClick={() => setActiveMenuMsgId(null)}>
+                    <div 
+                      className="flex-1 overflow-y-auto p-4 space-y-5 relative" 
+                      onClick={() => setActiveMenuMsgId(null)}
+                      onScroll={handleChatScroll}
+                    >
                       {(messages[activeChatId] || []).filter(m => !m.deletedAt).map((msg) => {
+                        
+                        // --- Рендер системного сообщения (Broadcast Admin) ---
+                        if (msg.type === 'system') {
+                          return (
+                            <div key={msg.id} className="flex justify-center my-4 w-full animate-gentle-fade-in-up">
+                              <div className="bg-gradient-to-r from-red-600 to-red-500 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg flex items-center gap-2 border border-red-300">
+                                <AlertTriangle size={18} className="animate-pulse" />
+                                {msg.text}
+                              </div>
+                            </div>
+                          );
+                        }
+
                         // --- Рендер приглашения на звонок ---
                         if (msg.type === 'call') {
                           return (
@@ -2267,6 +2353,7 @@ export default function App() {
 
                         // --- Рендер обычного сообщения ---
                         const isMe = msg.senderId === user?.uid;
+                        const canDelete = isMe || isAdmin;
                         const senderData = usersData[msg.senderId] || {};
                         const senderAvatar = senderData.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${msg.senderId}`;
 
@@ -2386,8 +2473,8 @@ export default function App() {
                                   <button onClick={() => { setReplyingTo(msg); setActiveMenuMsgId(null); }} className="w-full text-left px-3 py-2 text-base md:text-sm hover:bg-blue-50 rounded-lg flex items-center gap-3"><Reply size={16}/> {t('reply')}</button>
                                   {isMe && msg.type === 'text' && <button onClick={() => { setInputText(msg.text); setEditingMessageId(msg.id); setActiveMenuMsgId(null); }} className="w-full text-left px-3 py-2 text-base md:text-sm hover:bg-blue-50 rounded-lg flex items-center gap-3"><Edit2 size={16}/> {t('edit')}</button>}
                                   <button onClick={() => { handlePinMessage(msg.id); setActiveMenuMsgId(null); }} className="w-full text-left px-3 py-2 text-base md:text-sm hover:bg-blue-50 rounded-lg flex items-center gap-3"><StickyNote size={16}/> {pinnedMessageId === msg.id ? t('unpinMessage') : t('pinMessage')}</button>
-                                  {isMe && <div className="border-t border-slate-100 my-1"></div>}
-                                  {isMe && <button onClick={() => requestDeleteMessage(msg.id)} className="w-full text-left px-3 py-2 text-base md:text-sm hover:bg-red-50 text-red-600 rounded-lg flex items-center gap-3 font-semibold"><Trash2 size={16}/> {t('delete')}</button>}
+                                  {canDelete && <div className="border-t border-slate-100 my-1"></div>}
+                                  {canDelete && <button onClick={() => requestDeleteMessage(msg.id)} className="w-full text-left px-3 py-2 text-base md:text-sm hover:bg-red-50 text-red-600 rounded-lg flex items-center gap-3 font-semibold"><Trash2 size={16}/> {isAdmin && !isMe ? 'Удалить (Админ)' : t('delete')}</button>}
                                 </div>
                               )}
                               
@@ -2711,6 +2798,10 @@ export default function App() {
             {showAdminPanel && (
               <DraggableWindow title="Панель Администратора" icon={Shield} onClose={() => setShowAdminPanel(false)} initialPos={{x: Math.max(10, window.innerWidth/2 - 350), y: Math.max(10, 100)}} width={700} zIndex={150}>
                   <div className="flex-1 bg-white/95 p-4 md:p-6 overflow-y-auto backdrop-blur-md">
+                    <div className="mb-6 flex flex-wrap gap-2 pb-4 border-b border-slate-300">
+                      <button onClick={sendSystemMessage} className="aero-btn px-4 py-2 text-sm font-bold bg-blue-100 text-blue-800 flex items-center gap-2 rounded-lg shadow-sm"><AlertTriangle size={16} /> Системная рассылка</button>
+                    </div>
+
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm text-left border-collapse min-w-[500px]">
                         <thead>
@@ -2737,14 +2828,22 @@ export default function App() {
                                     </div>
                                   ) : <span className="text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded text-xs w-max">Активен</span>}
                               </td>
-                              <td className="p-3">
+                              <td className="p-3 whitespace-nowrap">
                                 {uid !== user.uid && (
-                                  <button 
-                                    onClick={() => toggleBan(uid, u.isBanned)}
-                                    className={`px-3 py-1.5 rounded-md text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 ${u.isBanned ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}
-                                  >
-                                    {u.isBanned ? 'Разбанить' : 'Забанить'}
-                                  </button>
+                                  <>
+                                    <button 
+                                      onClick={() => toggleBan(uid, u.isBanned)}
+                                      className={`px-3 py-1.5 rounded-md text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 ${u.isBanned ? 'bg-green-500 hover:bg-green-600' : 'bg-orange-500 hover:bg-orange-600'}`}
+                                    >
+                                      {u.isBanned ? 'Разбанить' : 'Забанить'}
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeleteUser(uid)}
+                                      className="px-3 py-1.5 rounded-md text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 bg-red-600 hover:bg-red-700 ml-2"
+                                    >
+                                      Удалить
+                                    </button>
+                                  </  >
                                 )}
                               </td>
                             </tr>
