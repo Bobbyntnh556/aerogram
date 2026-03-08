@@ -146,8 +146,8 @@ const TRANSLATIONS = {
     groupNamePlaceholder: 'Мои друзья',
     nicknamePlaceholder: 'Пользователь 2009',
     someone: 'Кто-то',
-    pinMessage: 'Закрепить',
-    unpinMessage: 'Открепить',
+    pinMessage: 'Закрепить сообщение',
+    unpinMessage: 'Открепить сообщение',
     pinnedMessage: 'Закрепленное сообщение',
     mediaExplorer: 'Медиа Проводник',
     files: 'Файлы',
@@ -160,8 +160,7 @@ const TRANSLATIONS = {
     deleteForever: 'Удалить навсегда',
     emptyBin: 'Очистить корзину',
     achievements: 'Достижения',
-    soundMixer: 'Микшер громкости',
-    draw: 'Нарисовать'
+    soundMixer: 'Микшер громкости'
   },
   en: {
     loginTitle: 'Login to AeroGram',
@@ -188,7 +187,7 @@ const TRANSLATIONS = {
     reply: 'Reply',
     messagePlaceholder: 'Type a message...',
     send: 'Send',
-    record: 'Record voice',
+    record: 'Record voice message',
     cancel: 'Cancel',
     save: 'OK',
     close: 'Close',
@@ -248,8 +247,8 @@ const TRANSLATIONS = {
     groupNamePlaceholder: 'My Friends',
     nicknamePlaceholder: 'User 2009',
     someone: 'Someone',
-    pinMessage: 'Pin',
-    unpinMessage: 'Unpin',
+    pinMessage: 'Pin Message',
+    unpinMessage: 'Unpin Message',
     pinnedMessage: 'Pinned Message',
     mediaExplorer: 'Media Explorer',
     files: 'Files',
@@ -262,8 +261,7 @@ const TRANSLATIONS = {
     deleteForever: 'Delete Forever',
     emptyBin: 'Empty Recycle Bin',
     achievements: 'Achievements',
-    soundMixer: 'Volume Mixer',
-    draw: 'Draw'
+    soundMixer: 'Volume Mixer'
   }
 };
 
@@ -310,7 +308,6 @@ const aeroStyles = `
     100% { background-position: 0% 50%; }
   }
 
-  /* Base window styling */
   .aero-window {
     background: var(--aero-glass);
     backdrop-filter: blur(16px);
@@ -320,14 +317,16 @@ const aeroStyles = `
       inset 0 0 0 1px rgba(255,255,255,0.4),
       inset 0 0 20px rgba(255,255,255,0.3),
       0 12px 40px rgba(0,0,0,0.3);
+    border-radius: 8px;
     overflow: hidden;
+    position: relative;
   }
 
   .aero-titlebar {
     background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.2) 100%);
     border-bottom: 1px solid rgba(255,255,255,0.5);
     box-shadow: inset 0 1px 0 var(--aero-highlight);
-    height: 36px;
+    height: 32px;
     display: flex;
     align-items: center;
     padding: 0 12px;
@@ -368,16 +367,15 @@ const aeroStyles = `
   }
 
   .win-control {
-    width: 32px;
-    height: 20px;
+    width: 28px;
+    height: 18px;
     border: 1px solid rgba(0,0,0,0.2);
-    border-radius: 4px;
+    border-radius: 3px;
     display: flex;
     justify-content: center;
     align-items: center;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
     cursor: pointer;
-    margin-left: 2px;
   }
   .win-close {
     background: linear-gradient(180deg, #ff8c8c 0%, #e81123 49%, #c3000f 50%, #e81123 100%);
@@ -437,7 +435,7 @@ const aeroStyles = `
     background: #fff;
   }
 
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar { width: 12px; }
   ::-webkit-scrollbar-track { background: rgba(255,255,255,0.2); box-shadow: inset 0 0 6px rgba(0,0,0,0.1); }
   ::-webkit-scrollbar-thumb { 
     background: linear-gradient(90deg, #e0e0e0 0%, #bfbfbf 50%, #d0d0d0 100%); 
@@ -479,8 +477,8 @@ const aeroStyles = `
   }
   input[type=range].aero-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: linear-gradient(180deg, #ffffff 0%, #dcdcdc 50%, #b8b8b8 51%, #f0f0f0 100%);
     border: 1px solid #777;
@@ -536,6 +534,12 @@ const aeroStyles = `
     transform: translateX(0);
   }
   
+  @media (max-width: 767px) {
+    .aero-peek-popup {
+      display: none !important;
+    }
+  }
+
   .sticky-note {
     background: linear-gradient(180deg, #fff9c4 0%, #fff59d 100%);
     border: 1px solid #fbc02d;
@@ -564,7 +568,7 @@ const aeroStyles = `
   
   .reaction-pill {
     background: rgba(255,255,255,0.9); border: 1px solid #cbd5e1; border-radius: 12px;
-    padding: 2px 6px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 6px; font-size: 11px; display: inline-flex; items-center; gap: 4px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.1s;
   }
   .reaction-pill:hover { transform: scale(1.1); }
@@ -1630,14 +1634,14 @@ export default function App() {
 
       // 4. Get signaling database references
       const callDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', activeCallRoom);
-      const callerCandidatesCollection = collection(callDocRef, 'callerCandidates');
-      const calleeCandidatesCollection = collection(callDocRef, 'calleeCandidates');
+      const callerCandidatesCol = collection(db, 'artifacts', appId, 'public', 'data', 'calls', activeCallRoom, 'callerCandidates');
+      const calleeCandidatesCol = collection(db, 'artifacts', appId, 'public', 'data', 'calls', activeCallRoom, 'calleeCandidates');
 
       const callDocSnap = await getDoc(callDocRef);
       const callData = callDocSnap.data();
 
       if (!callData) {
-        setCallStatus('error');
+        if (!cancelled) setCallStatus('error');
         return;
       }
 
@@ -1648,8 +1652,8 @@ export default function App() {
         
         // Listen and push ICE candidates
         pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            addDoc(callerCandidatesCollection, event.candidate.toJSON());
+          if (event.candidate && !cancelled) {
+            addDoc(callerCandidatesCol, event.candidate.toJSON());
           }
         };
 
@@ -1663,7 +1667,7 @@ export default function App() {
         };
 
         await updateDoc(callDocRef, { offer });
-        setCallStatus('waiting');
+        if (!cancelled) setCallStatus('waiting');
 
         // Listen for Guest's Answer
         unsubs.push(onSnapshot(callDocRef, (snapshot) => {
@@ -1676,7 +1680,7 @@ export default function App() {
         }));
 
         // Listen for remote ICE candidates
-        unsubs.push(onSnapshot(calleeCandidatesCollection, (snapshot) => {
+        unsubs.push(onSnapshot(calleeCandidatesCol, (snapshot) => {
           snapshot.docChanges().forEach((change) => {
             if (change.type === 'added') {
               const candidate = new RTCIceCandidate(change.doc.data());
@@ -1690,14 +1694,13 @@ export default function App() {
         
         // Listen and push ICE candidates
         pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            addDoc(calleeCandidatesCollection, event.candidate.toJSON());
+          if (event.candidate && !cancelled) {
+            addDoc(calleeCandidatesCol, event.candidate.toJSON());
           }
         };
 
         const initGuest = async (offerData) => {
-          const offerDescription = new RTCSessionDescription(offerData);
-          await pc.setRemoteDescription(offerDescription);
+          await pc.setRemoteDescription(new RTCSessionDescription(offerData));
 
           const answerDescription = await pc.createAnswer();
           await pc.setLocalDescription(answerDescription);
@@ -1708,10 +1711,10 @@ export default function App() {
           };
 
           await updateDoc(callDocRef, { answer });
-          setCallStatus('connected');
+          if (!cancelled) setCallStatus('connected');
 
           // Listen for remote ICE candidates
-          unsubs.push(onSnapshot(callerCandidatesCollection, (snapshot) => {
+          unsubs.push(onSnapshot(callerCandidatesCol, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
               if (change.type === 'added') {
                 const candidate = new RTCIceCandidate(change.doc.data());
@@ -3027,7 +3030,7 @@ export default function App() {
               <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4" onClick={() => setViewingMessage(null)}>
                 <div className="relative w-full h-full flex items-center justify-center">
                   <button className="absolute top-4 right-4 md:top-8 md:right-8 text-white hover:text-red-400 bg-black/50 p-2 rounded-full backdrop-blur z-10 transition-colors"><X size={32}/></button>
-                  <img src={viewingMessage.imageUrl} className="max-w-full max-h-[90dvh] object-contain shadow-2xl rounded border border-white/20" alt="Fullscreen view" onClick={e => e.stopPropagation()}/>
+                  <img src={viewingMessage.imageUrl} className="max-w-full max-h-[90dvh] object-contain shadow-2xl rounded border-4 border-white/20" alt="Fullscreen view" onClick={e => e.stopPropagation()}/>
                 </div>
               </div>
             )}
